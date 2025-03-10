@@ -1,0 +1,6 @@
+groq
+openai
+gradio
+json-repair
+pydrive
+oauth2client
