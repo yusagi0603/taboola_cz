@@ -103,13 +103,13 @@ def embed_from_drive(folder_id):
 def get_vector_store_id(file_streams):
   vector_store = client.beta.vector_stores.create(name=VECTOR_STORE_NAME)
 
-  # spent 51s batching all 175 files
-  file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
-    vector_store_id=vector_store.id, files=file_streams
-  )
+#   # spent 51s batching all 175 files
+#   file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
+#     vector_store_id=vector_store.id, files=file_streams
+#   )
 
-  print("file_batch status",file_batch.status)
-  print("file_counts",file_batch.file_counts)
+#   print("file_batch status",file_batch.status)
+#   print("file_counts",file_batch.file_counts)
 
   return vector_store.id
 
@@ -223,6 +223,22 @@ def generate_initial_content(grade_values, vocabulary_range_values, topic_range_
         params_summary += "未選擇主題\n\n"
 
     params_summary += "### 文法範圍\n"
+    if grammar_range_values:
+        params_summary += "選擇的文法: " + ", ".join(grammar_range_values) + "\n\n"
+    else:
+        params_summary += "未選擇文法\n\n"
+    
+    # Update the assistant with the customized instruction
+    client.beta.assistants.update(
+        assistant_id=ASSISTANT_ID,
+        instructions= ASSISTANT_INSTRUCTION.format(
+            grade_values=grade_values,
+            topic_values=topic_range_values,
+            grammar_values=grammar_range_values,
+            vocabulary_values=vocabulary_range_values
+        ),
+        response_format=RESPONSE_FORMAT
+    )
     
     # Generate article using OpenAI API based on selected parameters
     user_prompt = f"""
@@ -241,7 +257,6 @@ def generate_initial_content(grade_values, vocabulary_range_values, topic_range_
     Reply with just the article text, without any explanations or notes.
     """
     
-    # Make the call to OpenAI API
     # Create progress bar
     progress = gr.Progress()
     
@@ -268,6 +283,7 @@ def generate_initial_content(grade_values, vocabulary_range_values, topic_range_
     progress(1.0, "Done!")
     # Enable the chat interface
     return content, gr.update(visible=True)
+
 def handle_response(message, history, textbox_content):
     integrated_message = message
 
