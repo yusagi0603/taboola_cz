@@ -22,7 +22,7 @@ from typing_extensions import override
 from openai import AssistantEventHandler, OpenAI
 from openai.types.beta.threads import Text, TextDelta
 from openai.types.beta.threads.runs import ToolCall, ToolCallDelta
-
+from components.chat import Chat
 
 import option
 from config import (
@@ -177,27 +177,6 @@ class EventHandler(AssistantEventHandler):
 
 
 
-# Components
-chatbot = gr.Chatbot(type="messages")
-textbox = gr.Textbox(  # Canvas
-    label="文章編輯",
-    lines=20,
-    render=False
-)
-prompt_input = gr.Textbox(  # User prompt
-    submit_btn=True,
-    render=False
-)
-quick_response = gr.Dataset(  # Suggested user prompt
-    samples=[[CONVERSATION_STARTER]],
-    components=[prompt_input],
-    render=False
-)
-hidden_list = gr.JSON(
-    value=[[]],
-    render=False,
-    visible=False
-)
 
 # Function to generate content based on dropdown selections
 def generate_initial_content(grade_values, vocabulary_range_values, topic_range_values, grammar_range_values):
@@ -284,70 +263,6 @@ def generate_initial_content(grade_values, vocabulary_range_values, topic_range_
     # Enable the chat interface
     return content, gr.update(visible=True)
 
-def handle_response(message, history, textbox_content):
-    integrated_message = message
-
-    if not (message == CONVERSATION_STARTER or textbox_content == ""):
-        integrated_message = f"""
-        用戶當前的需求：
-        {message}
-
-        用戶對您生成的題目進行了以下修改：
-        {textbox_content}
-
-        請根據用戶的需求和修改內容，更新題目，並依照步驟生成下一部分內容。
-        確保您：
-        1. 完整保留用戶的修改。
-        2. 提供清晰的建議（`suggestion`）。
-        3. 提供下一步的行動選項（`next_step_prompt`）。
-        """
-
-    thread = client.beta.threads.create()
-    client.beta.threads.messages.create(
-        thread_id=thread.id,
-        role="user",
-        content=integrated_message,
-    )
-    full_response = ""
-    current_lesson_plan = ""
-    suggestion = ""
-    next_step_prompt = [[]]
-
-    with client.beta.threads.runs.stream(
-        thread_id=thread.id,
-        assistant_id=ASSISTANT_ID
-    ) as stream:
-        for text_delta in stream.text_deltas:
-            full_response += text_delta
-
-            repaired_json = json_repair.loads(full_response)
-            try:
-                current_lesson_plan = repaired_json.get('current_lesson_plan', '')
-            except:
-                current_lesson_plan = ""
-            try:
-                suggestion = repaired_json.get('suggestion', '')
-            except:
-                suggestion = ""
-
-            yield suggestion, current_lesson_plan, [[]]
-
-    try:
-        repaired_json = json.loads(full_response)
-        next_step_prompt = repaired_json.get('next_step_prompt', [["進入下一步"]])
-    except:
-        next_step_prompt = [["進入下一步"]]
-
-    yield suggestion, current_lesson_plan, next_step_prompt
-
-
-def handle_quick_response_click(selected):
-    return selected[0]
-
-def handle_quick_response_samples(next_step_prompt):
-    if len(next_step_prompt) > 0 and len(next_step_prompt[0]) > 0:
-        return gr.Dataset(samples=next_step_prompt,visible=True)
-    return gr.Dataset(samples=[['-']],visible=False)
 
 def check_password(input_password):
     if input_password == CORRECT_PASSWORD:
@@ -355,8 +270,11 @@ def check_password(input_password):
     else:
         return gr.update(visible=True), gr.update(visible=False), gr.update(value="Wrong Password. Please Retry. hint: channel name", visible=True)
 
+chat = Chat(client, ASSISTANT_ID)
 
 with gr.Blocks() as demo:
+    # Initialize chat component
+    
     # password UI popup
     with gr.Group(visible=True) as password_popup:
         password_input = gr.Textbox(label="請輸入密碼", type="password")
@@ -397,27 +315,13 @@ with gr.Blocks() as demo:
             
             # Chat interface (initially hidden)
             with gr.Group(visible=False) as chat_ui:
-                with gr.Row(equal_height=True):
-                    with gr.Column():
-                        textbox.render()
-                        prompt_input.render()
-                        quick_response.render()
-                        hidden_list.render()
-                    with gr.Column():
-                        gr.ChatInterface(
-                            handle_response,
-                            textbox=prompt_input,
-                            examples=[[CONVERSATION_STARTER, None]],
-                            additional_inputs=[textbox],
-                            additional_outputs=[textbox, hidden_list],
-                            type="messages"
-                        )
+                chat.render()
             
             # Connect generate button to show chat interface and populate textbox
             generate_button.click(
                 generate_initial_content,
                 inputs=[grade, vocabulary_range, topic_range, grammar_range],
-                outputs=[textbox, chat_ui]
+                outputs=[chat.textbox, chat_ui]
             )
             
     # submit button event
@@ -433,14 +337,4 @@ with gr.Blocks() as demo:
         outputs=[password_popup, main_ui, error_message]
     )
 
-    quick_response.click(
-        handle_quick_response_click,
-        quick_response,
-        prompt_input
-    )
-
-    hidden_list.change(handle_quick_response_samples, hidden_list, quick_response)
-
 demo.launch(debug=True)
-
-# delete_asst(ASSISTANT_ID)
