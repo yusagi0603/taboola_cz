@@ -1,13 +1,15 @@
 import gradio as gr
-from config import CONVERSATION_STARTER
 import json
 from json_repair import repair_json
 import json_repair
 
+CONVERSATION_STARTER = "Click this button to start generating or rewriting an passage."
 class Chat:
     def __init__(self, client, assistant_id):
         self.client = client
         self.assistant_id = assistant_id
+        self.generated_questions = ""  # Store generated questions
+        self.current_stage = "initial"  # Track the current stage of the conversation
         
         # Initialize components
         self.chatbot = gr.Chatbot(type="messages")
@@ -67,20 +69,37 @@ class Chat:
             for text_delta in stream.text_deltas:
                 full_response += text_delta
 
-                repaired_json = json_repair.loads(full_response)
                 try:
+                    # Use repair_json function instead of json_repair.loads
+                    repaired_json = repair_json(full_response)
+                    if isinstance(repaired_json, str):
+                        repaired_json = json.loads(repaired_json)
+                    
                     current_lesson_plan = repaired_json.get('current_lesson_plan', '')
-                except:
-                    current_lesson_plan = ""
-                try:
+                    
+                    stage = repaired_json.get('stage', '')
+                    if stage:
+                        self.current_stage = stage
+                        if stage == 'question_generation':
+                            self.generated_questions = current_lesson_plan
+                    # Fallback to detection if stage not provided
+                    elif "Questions" in current_lesson_plan and "Answer:" in current_lesson_plan:
+                        self.current_stage = "question_generation"
+                        self.generated_questions = current_lesson_plan
+                    elif current_lesson_plan.strip() and "Passage:" in current_lesson_plan:
+                        self.current_stage = "passage_generation"
+                    
                     suggestion = repaired_json.get('suggestion', '')
-                except:
-                    suggestion = ""
+                except Exception as e:
+                    print(f"Error parsing JSON: {e}")
+                    pass
 
                 yield suggestion, current_lesson_plan, [[]]
 
         try:
-            repaired_json = json.loads(full_response)
+            repaired_json = repair_json(full_response)
+            if isinstance(repaired_json, str):
+                repaired_json = json.loads(repaired_json)
             next_step_prompt = repaired_json.get('next_step_prompt', [["進入下一步"]])
         except:
             next_step_prompt = [["進入下一步"]]
@@ -122,4 +141,11 @@ class Chat:
             self.handle_quick_response_samples,
             self.hidden_list,
             self.quick_response
-        ) 
+        )
+
+    def get_current_stage(self):
+        return self.current_stage
+    
+    def get_generated_questions(self):
+        return self.generated_questions
+    

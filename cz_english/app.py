@@ -9,6 +9,7 @@ References
 '''
 import os
 import json
+from pathlib import Path
 
 
 from pydrive.auth import GoogleAuth
@@ -29,14 +30,21 @@ from config import (
     OPENAI_API_KEY,
     ASSISTANT_NAME,
     ASSISTANT_DESCRIPTION,
-    ASSISTANT_INSTRUCTION,
     ASSISTANT_MODEL,
-    RESPONSE_FORMAT,
-    CONVERSATION_STARTER,
     VECTOR_STORE_NAME,
     CORRECT_PASSWORD,
 )
 
+PASSAGE_GENERATION_PATH = Path(__file__).parent / "prompt" / "passage_generation.jinja"
+PASSAGE_PROMPT_PATH = Path(__file__).parent / "prompt" / "passage_prompt.jinja"
+RESPONSE_FORMAT_PATH = Path(__file__).parent / "prompt" / "response_format.json"
+
+with open(PASSAGE_PROMPT_PATH, 'r', encoding='utf-8') as f:
+    ASSISTANT_INSTRUCTION = f.read()
+with open(PASSAGE_GENERATION_PATH, 'r', encoding='utf-8') as f:
+    PASSAGE_GENERATION = f.read()
+with open(RESPONSE_FORMAT_PATH, 'r', encoding='utf-8') as f:
+    RESPONSE_FORMAT = json.load(f)
 
 # Initialize OpenAI client
 client = OpenAI(api_key=OPENAI_API_KEY)
@@ -100,7 +108,7 @@ def embed_from_drive(folder_id):
   return file_streams
 
 # Embed files (downloaded from drive folder)
-def get_vector_store_id(file_streams):
+def get_vector_store_id():
   vector_store = client.beta.vector_stores.create(name=VECTOR_STORE_NAME)
 
 #   # spent 51s batching all 175 files
@@ -153,7 +161,6 @@ except Exception as e:
   assistant_id = create_assistant(vector_store_id)
 
 ASSISTANT_ID = assistant_id
-
 # Update assistant if needed
 assistant = client.beta.assistants.update(
     assistant_id=ASSISTANT_ID,
@@ -180,33 +187,6 @@ class EventHandler(AssistantEventHandler):
 
 # Function to generate content based on dropdown selections
 def generate_initial_content(grade_values, vocabulary_range_values, topic_range_values, grammar_range_values):
-    # Create a summary of selected options
-    params_summary = "## 初始文章生成參數\n\n"
-    
-    params_summary += "### 學生年級\n"
-    if grade_values:
-        params_summary += "選擇的年級: " + ", ".join(grade_values) + "\n\n"
-    else:
-        params_summary += "未選擇年級\n\n"
-        
-    params_summary += "### 單字範圍\n"
-    if vocabulary_range_values:
-        params_summary += "選擇的單字: " + ", ".join(vocabulary_range_values) + "\n\n"
-    else:
-        params_summary += "未選擇單字\n\n"
-        
-    params_summary += "### 主題範圍\n"
-    if topic_range_values:
-        params_summary += "選擇的主題: " + ", ".join(topic_range_values) + "\n\n"
-    else:
-        params_summary += "未選擇主題\n\n"
-
-    params_summary += "### 文法範圍\n"
-    if grammar_range_values:
-        params_summary += "選擇的文法: " + ", ".join(grammar_range_values) + "\n\n"
-    else:
-        params_summary += "未選擇文法\n\n"
-    
     # Update the assistant with the customized instruction
     client.beta.assistants.update(
         assistant_id=ASSISTANT_ID,
@@ -218,23 +198,13 @@ def generate_initial_content(grade_values, vocabulary_range_values, topic_range_
         ),
         response_format=RESPONSE_FORMAT
     )
-    
-    # Generate article using OpenAI API based on selected parameters
-    user_prompt = f"""
-    Generate an English article suitable for {', '.join(grade_values) if grade_values else 'middle school'} Taiwanese students.
-    
-    Vocabulary range: {', '.join(vocabulary_range_values) if vocabulary_range_values else 'general'}
-    Topics: {', '.join(topic_range_values) if topic_range_values else 'general interest'}
-    Grammar: {', '.join(grammar_range_values) if grammar_range_values else 'general'}
 
-    The article should be appropriate for the student level, using vocabulary from the specified range, 
-    and covering topics from the selected categories. 
-    
-    Generate a well-structured article with 3-5 paragraphs, with a clear introduction, body, and conclusion.
-    Include a title for the article.
-    
-    Reply with just the article text, without any explanations or notes.
-    """
+    user_prompt = PASSAGE_GENERATION.format(
+        grade_values=grade_values if grade_values else 'middle school',
+        vocabulary_values=vocabulary_range_values if vocabulary_range_values else 'general',
+        topic_values=topic_range_values if topic_range_values else 'general interest',
+        grammar_values=grammar_range_values if grammar_range_values else 'general'
+    )
     
     # Create progress bar
     progress = gr.Progress()
@@ -257,7 +227,7 @@ def generate_initial_content(grade_values, vocabulary_range_values, topic_range_
     
     progress(0.9, "Formatting output...")
     # Combine parameters summary with the generated article
-    content = params_summary + "\n## 生成的文章\n\n" + generated_article + "\n\n請編輯上述文章或使用聊天功能獲取更多幫助。"
+    content = generated_article + "\n\n請編輯上述文章或使用聊天功能獲取更多幫助。"
     
     progress(1.0, "Done!")
     # Enable the chat interface
