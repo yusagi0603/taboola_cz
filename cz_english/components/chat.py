@@ -1,3 +1,4 @@
+import time
 import gradio as gr
 from config import CONVERSATION_STARTER
 import json
@@ -8,14 +9,14 @@ class Chat:
     def __init__(self, client, assistant_id):
         self.client = client
         self.assistant_id = assistant_id
+        self._define_components()
+
+    def _define_components(self):
         
         # Initialize components
         self.chatbot = gr.Chatbot(type="messages")
-        self.textbox = gr.Textbox(  # Canvas
-            label="文章編輯",
-            lines=20,
-            render=False
-        )
+
+
         self.prompt_input = gr.Textbox(  # User prompt
             submit_btn=True,
             render=False
@@ -30,6 +31,17 @@ class Chat:
             render=False,
             visible=False
         )
+
+        self.output_container = gr.Group()
+
+        self.textbox = gr.Textbox(  # Canvas
+            label="文章編輯",
+            lines=20,
+            render=False
+        )
+
+        self.button1 = gr.Button("題型1", elem_id="button1",render=False)
+
 
     def handle_response(self, message, history, textbox_content):
         integrated_message = message
@@ -95,22 +107,64 @@ class Chat:
             return gr.Dataset(samples=next_step_prompt, visible=True)
         return gr.Dataset(samples=[['-']], visible=False)
 
+    def handle_response2(self, message, history, textbox_content):
+        # Mock response data
+        mock_response = {
+            'current_lesson_plan': f"Here is a mock lesson plan based on: {textbox_content}",
+            'suggestion': "This is a mock suggestion for your content.",
+            'next_step_prompt': [["Continue", "Revise", "Start Over"]]
+        }
+        
+        # Simulate streaming by yielding partial responses
+        yield "Loading suggestion...", "", [[]]
+        yield mock_response['suggestion'], "", [[]]
+        yield mock_response['suggestion'], mock_response['current_lesson_plan'], [[]]
+        yield mock_response['suggestion'], mock_response['current_lesson_plan'], mock_response['next_step_prompt']
+    
+
+    def add_problem(self, problem_type, problems):
+        problem_name = problem_type + str(time.time())
+        problems[problem_name] = problem_type
+        return problems
+
+    
     def render(self):
+
+        problem_state = gr.State({
+        })
+
+
         with gr.Row(equal_height=True):
             with gr.Column():
-                self.textbox.render()
+                gr.Markdown("## 英文考題產生器")
+        with gr.Row(equal_height=True):
+            with gr.Column():
+                self.chatbot.render()
                 self.prompt_input.render()
                 self.quick_response.render()
                 self.hidden_list.render()
+                self.button1.render()
             with gr.Column():
+                self.textbox.render()
+
+                @gr.render(inputs=problem_state)
+                def render_problem(problems):
+                    for name, problem in enumerate(problems):
+                        gr.Textbox(value=problem, interactive=True, elem_id=f"name")
+
+
                 gr.ChatInterface(
                     self.handle_response,
+                    chatbot=self.chatbot,
                     textbox=self.prompt_input,
                     examples=[[CONVERSATION_STARTER, None]],
                     additional_inputs=[self.textbox],
                     additional_outputs=[self.textbox, self.hidden_list],
                     type="messages"
                 )
+
+        self.button1.click(self.add_problem, inputs=[self.button1, problem_state], outputs=problem_state)
+
 
         # Set up event handlers
         self.quick_response.click(
