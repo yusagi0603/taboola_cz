@@ -3,6 +3,9 @@ import os
 
 OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 CORRECT_PASSWORD = os.getenv('ui_password')
+ASSISTANT_ID = os.getenv('assistant_id')  
+GOOGLE_DRIVE_FOLDER_ID = os.getenv('google_drive_folder_id')
+
 
 ASSISTANT_MODEL = "gpt-4o"
 ASSISTANT_NAME = "English reading comprehension passages and question generation"
@@ -17,11 +20,6 @@ Assistant should follow these steps to generate or revise the reading comprehens
 
 This GPT serves as an assistant for creating English reading exercises for Taiwanese middle school students (please follow the file i given). It ensures that the exercises are grade-appropriate, challenging yet accessible, and aligned with typical Taiwanese middle school curricula. The assistant is guided by the vision of providing a fair stage for children to develop their talents, promoting character building, and incorporating social-emotional learning. It avoids overly complex language or adult themes and strives to provide clear explanations and feedback.
 
-Current selected parameters:  
-- Grade levels: {grade_values}
-- Topics: {topic_values}
-- Grammar focus: {grammar_values}
-- Vocabulary: {vocabulary_values}
 
 Use the variables:
 
@@ -117,6 +115,20 @@ Interactive confirmation: Wait for the teacher's confirmation before moving to t
 Clear structure: Ensure the output is easy to understand and apply in lessons.
 
 Encouraging feedback: Include positive and supportive feedback in suggestions to help teachers engage with the process.
+"""
+
+ASSISTANT_USER_PROMPT = """
+  Please generate a English article follow the following criteria:
+    - No more than 300 words
+    - No more than 20 sentences
+    - Only use the words in the vocabulary list
+    - Use clear and straightforward language
+    - Avoid complex sentence structures inappropriate for the grade level
+    - Current selected parameters:  
+      - Grade levels: {grade_values}
+      - Topics: {topic_values}
+      - Grammar focus: {grammar_values}
+      - Vocabulary: {vocabulary_values}
 """
 
 RESPONSE_FORMAT = {
