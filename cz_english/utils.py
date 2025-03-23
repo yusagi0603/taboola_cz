@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from typing_extensions import override
 
@@ -6,12 +7,9 @@ from config import (
     OPENAI_API_KEY,
     ASSISTANT_NAME,
     ASSISTANT_DESCRIPTION,
-    ASSISTANT_INSTRUCTION,
     ASSISTANT_MODEL,
-    RESPONSE_FORMAT,
     CORRECT_PASSWORD,
     ASSISTANT_ID,
-    ASSISTANT_USER_PROMPT
 )
 
 from openai import AssistantEventHandler
@@ -32,8 +30,10 @@ from openai.types.beta.threads import Text, TextDelta
 from openai.types.beta.threads.runs import ToolCall, ToolCallDelta
 from components.chat import Chat
 
+ARTICLE_GENERATION_PATH = Path(__file__).parent / "prompt" / "article_generation.jinja"
 
-
+with open(ARTICLE_GENERATION_PATH, 'r', encoding='utf-8') as f:
+    ARTICLE_GENERATION = f.read()
 
 # Delete assistant by id 
 # def delete_asst(assistant_id):
@@ -161,14 +161,23 @@ def check_password(input_password):
 def call_llm_to_generate_article(
         llm_client, grade_values, vocabulary_range_values, topic_range_values, grammar_range_values
     ):
-  
-    system_prompt, user_prompt = ASSISTANT_INSTRUCTION, ASSISTANT_USER_PROMPT.format(
+
+    user_prompt = ARTICLE_GENERATION.format(
         grade_values=grade_values,
         topic_values=topic_range_values,
         grammar_values=grammar_range_values,
         vocabulary_values=vocabulary_range_values
     )
 
+  
+    # system_prompt, user_prompt = ASSISTANT_INSTRUCTION, ASSISTANT_USER_PROMPT.format(
+    #     grade_values=grade_values,
+    #     topic_values=topic_range_values,
+    #     grammar_values=grammar_range_values,
+    #     vocabulary_values=vocabulary_range_values
+    # )
+
+    
     # Use Assistant API to generate article
     # user_prompt = ASSISTANT_USER_PROMPT.format(
     #     grade_values=grade_values,
@@ -215,7 +224,6 @@ def call_llm_to_generate_article(
                 "role": "user", "content": user_prompt
             }
         ],
-        # response_format=RESPONSE_FORMAT
     )
     generated_article = response.choices[0].message.content
-    return generated_article
+    return generated_article  
