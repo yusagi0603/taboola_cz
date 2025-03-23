@@ -30,36 +30,11 @@ from typing_extensions import override
 from openai import OpenAI
 from openai.types.beta.threads import Text, TextDelta
 from openai.types.beta.threads.runs import ToolCall, ToolCallDelta
-from components.chat import Chat
-
-
-
-
-# Delete assistant by id 
-# def delete_asst(assistant_id):
-#   response = client.beta.assistants.delete(assistant_id)
-#   print(response)
-
-# client = OpenAI(api_key=OPENAI_API_KEY)
-
-
-
-# class EventHandler(AssistantEventHandler):
-#   @override
-#   def on_text_created(self, text: Text) -> None:
-#     print(f"\nassistant > ", end="", flush=True)
-
-#   @override
-#   def on_text_delta(self, delta: TextDelta, snapshot: Text):
-#     print(delta.value, end="", flush=True)
-
-#   @override
-#   def on_tool_call_created(self, tool_call: ToolCall):
-#     print(f"\nassistant > {tool_call.type}\n", flush=True)
-
-
-# def show_json(obj):
-#     print(json.loads(obj.model_dump_json()))
+from docx import Document
+import tempfile
+    
+from logger import app_logger
+from client import llm_client
 
 
 # spent 4m 50s downloading all 175 files
@@ -158,6 +133,21 @@ def check_password(input_password):
     else:
         return gr.update(visible=True), gr.update(visible=False), gr.update(value="Wrong Password. Please Retry. hint: channel name", visible=True)
 
+def _call_llm_with_prompt(system_prompt, user_prompt, llm_client=llm_client, response_format=None):
+    msg_lst = []
+    for role, prompt in zip(["system", "user"], [system_prompt, user_prompt]):
+        if prompt is not None:
+            msg_lst.append({"role": role, "content": prompt})
+
+    response = llm_client.chat.completions.create(
+        model=ASSISTANT_MODEL,
+        messages=msg_lst,
+        response_format=response_format
+    )
+    generated_article = response.choices[0].message.content
+    return generated_article    
+
+
 def call_llm_to_generate_article(
         llm_client, grade_values, vocabulary_range_values, topic_range_values, grammar_range_values
     ):
@@ -205,17 +195,85 @@ def call_llm_to_generate_article(
     # generated_article = message_responses.data[0].content[0].text.value
 
     # Use ChatCompletion API to generate article
-    response = llm_client.chat.completions.create(
-        model=ASSISTANT_MODEL,
-        messages=[
-            # {
-                # "role": "system", "content": system_prompt
-            # },
-            {
-                "role": "user", "content": user_prompt
-            }
-        ],
-        # response_format=RESPONSE_FORMAT
+    generated_article = _call_llm_with_prompt(
+        system_prompt=None, 
+        user_prompt=user_prompt, 
+        llm_client=llm_client, 
+        response_format=RESPONSE_FORMAT
     )
-    generated_article = response.choices[0].message.content
     return generated_article
+
+def call_llm_to_generate_question(llm_client, question_type):
+
+    system_prompt, user_prompt = f"You are a question generator for English exam in Taiwan.", "Please generate a question based on the question type: {question_type}"
+
+    generated_question = _call_llm_with_prompt(
+        system_prompt=system_prompt,
+        user_prompt=user_prompt,
+        llm_client=llm_client,
+        response_format=None
+    )
+    return generated_question
+
+def create_google_doc(self, title, content):
+    """Create a Google Doc with the given title and content."""
+    try:
+        # Import necessary libraries for Google Docs API
+        from googleapiclient.discovery import build
+        from google.oauth2 import service_account
+        
+        # Set up credentials and service
+        SCOPES = ['https://www.googleapis.com/auth/documents']
+        SERVICE_ACCOUNT_FILE = 'credentials.json'  # Path to your service account credentials
+        
+        credentials = service_account.Credentials.from_service_account_file(
+            SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+        docs_service = build('docs', 'v1', credentials=credentials)
+        
+        # Create a new document
+        document = {
+            'title': title
+        }
+        doc = docs_service.documents().create(body=document).execute()
+        document_id = doc.get('documentId')
+        
+        # Insert content into the document
+        requests = [
+            {
+                'insertText': {
+                    'location': {
+                        'index': 1
+                    },
+                    'text': content
+                }
+            }
+        ]
+        
+        docs_service.documents().batchUpdate(
+            documentId=document_id,
+            body={'requests': requests}
+        ).execute()
+        
+        # Get the document URL
+        doc_url = f"https://docs.google.com/document/d/{document_id}/edit"
+        return doc_url
+        
+    except Exception as e:
+        app_logger.error(f"Error creating Google Doc: {str(e)}")
+        return None
+    
+def generate_docx_file(exam_title, question_info_tuple):
+    
+    # # Create a Word document
+    doc = Document()
+    doc.add_heading(exam_title, 0)
+    
+    # # Add each question to the document
+    for question_type, question in question_info_tuple:
+        doc.add_heading(f"{question_type}", level=1)
+        doc.add_paragraph(question)
+        doc.add_paragraph("")  # Add some spacing
+
+    doc.save(exam_title)
+
+    return exam_title
