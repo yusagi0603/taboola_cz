@@ -32,14 +32,11 @@ chat_box_component = QuestionGenerator(llm_client, ASSISTANT_ID)
 
 with gr.Blocks() as demo:
     
-    progress = gr.Progress()
-
     # password UI popup
     with gr.Group(visible=True) as password_popup:
         password_input = gr.Textbox(label="請輸入密碼", type="password")
         submit_button = gr.Button("提交")
         error_message = gr.Textbox(label="", visible=False, interactive=False)
-    
     
     # Main UI 
     with gr.Group(visible=False) as main_ui:
@@ -78,18 +75,6 @@ with gr.Blocks() as demo:
             with gr.Group(visible=False) as chat_ui:
                 chat_box_component.render()
             
-            # Connect generate button to show chat interface and populate textbox
-            generate_button.click(
-                generate_article_with_chat_interface,
-                inputs=[
-                    grade, vocabulary_range, topic_range, grammar_range
-                ],
-                outputs=[chat_box_component.textbox, chat_ui, selection_ui],
-                show_progress="full"
-            )
-
-            progress(1.0, "Waiting for response.")
-            
     # Validate password
     submit_button.click(
         check_password,
@@ -100,6 +85,15 @@ with gr.Blocks() as demo:
         check_password,
         inputs=password_input,
         outputs=[password_popup, main_ui, error_message]
+    )
+    # Connect generate button to show chat interface and populate textbox
+    generate_button.click(
+        generate_article_with_chat_interface,
+        inputs=[
+            grade, vocabulary_range, topic_range, grammar_range
+        ],
+        outputs=[chat_box_component.textbox, chat_ui, selection_ui],
+        show_progress="full"
     )
 
 demo.launch(debug=True)

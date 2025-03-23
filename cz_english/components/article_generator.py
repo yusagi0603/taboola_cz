@@ -6,7 +6,8 @@ from client import llm_client
 # TODO: refactor this function to be a class
 # Function to generate content based on dropdown selections
 def generate_article_with_chat_interface(
-        grade_values, vocabulary_range_values, topic_range_values, grammar_range_values
+        grade_values, vocabulary_range_values, topic_range_values, grammar_range_values,
+        progress=gr.Progress()
     ):
    
     def _compose_params_summary(grade_values, vocabulary_range_values, topic_range_values, grammar_range_values):
@@ -37,6 +38,7 @@ def generate_article_with_chat_interface(
             params_summary += "未選擇文法\n\n"
         return params_summary
   
+    progress(0, desc="Generating article...")
     generated_article = call_llm_to_generate_article(
         llm_client=llm_client,
         grade_values=grade_values,
@@ -45,10 +47,14 @@ def generate_article_with_chat_interface(
         vocabulary_range_values=vocabulary_range_values       
     )
 
+    progress(0.9, desc="Finalizing...")
     # Combine parameters summary with the generated article
     params_summary = _compose_params_summary(
         grade_values, vocabulary_range_values, topic_range_values, grammar_range_values
     )
+
     content = params_summary + "\n## 生成的文章\n\n" + generated_article + "\n\n請編輯上述文章或使用聊天功能獲取更多幫助。"
     # Enable the chat interface
+    progress(1.0)
+
     return content, gr.update(visible=True), gr.update(visible=False)
