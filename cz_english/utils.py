@@ -205,7 +205,8 @@ def call_llm_to_generate_article(
 
 def call_llm_to_generate_question(llm_client, question_type):
 
-    system_prompt, user_prompt = f"You are a question generator for English exam in Taiwan.", "Please generate a question based on the question type: {question_type}"
+    system_prompt, user_prompt = "You are a question generator for English exam in Taiwan.", \
+        f"Please generate a question based on the question type: {question_type}"
 
     generated_question = _call_llm_with_prompt(
         system_prompt=system_prompt,
