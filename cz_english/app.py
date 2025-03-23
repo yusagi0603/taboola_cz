@@ -1,3 +1,6 @@
+import time
+
+import openai
 '''
 Note
 - DO NOT create an assistant every time! UPDATE through assistant_id.
@@ -17,12 +20,7 @@ from pydrive.drive import GoogleDrive
 from oauth2client.client import GoogleCredentials
 from openai import OpenAI
 import gradio as gr
-from json_repair import repair_json
-import json_repair  # enable streaming
 from typing_extensions import override
-from openai import AssistantEventHandler, OpenAI
-from openai.types.beta.threads import Text, TextDelta
-from openai.types.beta.threads.runs import ToolCall, ToolCallDelta
 from components.chat import Chat
 
 import option
@@ -54,6 +52,14 @@ existed_assistants = client.beta.assistants.list(
     order="desc",
     limit="20",
 )
+
+print("Existed assistants:")
+# for assistant in existed_assistants:
+    # print("  ", assistant.id, assistant.name)
+
+chat_box_component = Chat(client, ASSISTANT_ID)
+
+thread = client.beta.threads.create()
 print(len(existed_assistants.data),existed_assistants.data)
 
 # Delete assistant by id 
@@ -231,20 +237,12 @@ def generate_initial_content(grade_values, vocabulary_range_values, topic_range_
     
     progress(1.0, "Done!")
     # Enable the chat interface
-    return content, gr.update(visible=True)
-
-
-def check_password(input_password):
-    if input_password == CORRECT_PASSWORD:
-        return gr.update(visible=False), gr.update(visible=True), ""
-    else:
-        return gr.update(visible=True), gr.update(visible=False), gr.update(value="Wrong Password. Please Retry. hint: channel name", visible=True)
-
-chat = Chat(client, ASSISTANT_ID)
+    return content, gr.update(visible=True), gr.update(visible=False)
 
 with gr.Blocks() as demo:
-    # Initialize chat component
     
+    progress = gr.Progress()
+
     # password UI popup
     with gr.Group(visible=True) as password_popup:
         password_input = gr.Textbox(label="請輸入密碼", type="password")
@@ -285,22 +283,24 @@ with gr.Blocks() as demo:
             
             # Chat interface (initially hidden)
             with gr.Group(visible=False) as chat_ui:
-                chat.render()
+                chat_box_component.render()
             
             # Connect generate button to show chat interface and populate textbox
             generate_button.click(
-                generate_initial_content,
+                generate_article_with_chat_interface,
                 inputs=[grade, vocabulary_range, topic_range, grammar_range],
-                outputs=[chat.textbox, chat_ui]
+                outputs=[chat_box_component.textbox, chat_ui, selection_ui],
+                show_progress="full"
             )
+
+            progress(1.0, "Waiting for response.")
             
-    # submit button event
+    # Validate password
     submit_button.click(
         check_password,
         inputs=password_input,
         outputs=[password_popup, main_ui, error_message]
     )
-    # password input submit event (click enter)
     password_input.submit(
         check_password,
         inputs=password_input,
