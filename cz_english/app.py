@@ -163,21 +163,6 @@ assistant = client.beta.assistants.update(
 )
 show_json(assistant)
 
-class EventHandler(AssistantEventHandler):
-  @override
-  def on_text_created(self, text: Text) -> None:
-    print(f"\nassistant > ", end="", flush=True)
-
-  @override
-  def on_text_delta(self, delta: TextDelta, snapshot: Text):
-    print(delta.value, end="", flush=True)
-
-  @override
-  def on_tool_call_created(self, tool_call: ToolCall):
-    print(f"\nassistant > {tool_call.type}\n", flush=True)
-
-
-
 
 # Initialize components
 chat = Chat(client, ASSISTANT_ID)
