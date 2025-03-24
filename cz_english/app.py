@@ -24,6 +24,7 @@ from openai.types.beta.threads import Text, TextDelta
 from openai.types.beta.threads.runs import ToolCall, ToolCallDelta
 from components.chat import Chat
 from components.entry_form import EntryForm
+from components.password import Password
 
 import option
 from config import (
@@ -35,7 +36,6 @@ from config import (
     RESPONSE_FORMAT,
     CONVERSATION_STARTER,
     VECTOR_STORE_NAME,
-    CORRECT_PASSWORD,
 )
 
 
@@ -182,19 +182,11 @@ class EventHandler(AssistantEventHandler):
 # Initialize components
 chat = Chat(client, ASSISTANT_ID)
 entry_form = EntryForm(client, ASSISTANT_ID)
-
-def check_password(input_password):
-    if input_password == CORRECT_PASSWORD:
-        return gr.update(visible=False), gr.update(visible=True), ""
-    else:
-        return gr.update(visible=True), gr.update(visible=False), gr.update(value="Wrong Password. Please Retry. hint: channel name", visible=True)
+password = Password()
 
 with gr.Blocks() as demo:
-    # password UI popup
-    with gr.Group(visible=True) as password_popup:
-        password_input = gr.Textbox(label="請輸入密碼", type="password")
-        submit_button = gr.Button("提交")
-        error_message = gr.Textbox(label="", visible=False, interactive=False)
+    # Render password UI
+    password_popup, password_input, submit_button, error_message = password.render()
     
     # Main UI 
     with gr.Group(visible=False) as main_ui:
@@ -208,15 +200,15 @@ with gr.Blocks() as demo:
         outputs=[chat.textbox, chat_ui, entry_form_ui]
     )
             
-    # submit button event
+    # Connect password events
     submit_button.click(
-        check_password,
+        password.check_password,
         inputs=password_input,
         outputs=[password_popup, main_ui, error_message]
     )
-    # password input submit event (click enter)
+    
     password_input.submit(
-        check_password,
+        password.check_password,
         inputs=password_input,
         outputs=[password_popup, main_ui, error_message]
     )
