@@ -29,9 +29,10 @@ class Password:
 
     def render(self):
         with gr.Group(visible=True) as self.password_popup:
-            self.password_input.render()
-            self.submit_button.render()
-            self.error_message.render()
+            with gr.Column(elem_classes="password-box-with-margin"):
+                gr.Markdown("## Welcome", elem_classes="header-text")
+                self.password_input.render()
+                self.submit_button.render()
+                self.error_message.render()
         
-        # Return the components needed for events
         return self.password_popup, self.password_input, self.submit_button, self.error_message
