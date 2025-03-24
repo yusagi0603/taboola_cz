@@ -98,12 +98,7 @@ class EntryForm:
         Reply with just the article text, without any explanations or notes.
         """
         
-        # Create progress bar
-        progress = gr.Progress()
         
-        # Make API call with progress updates
-        progress(0, "Generating article...")
-        progress(0.3, "Sending request to GPT...")
         response = self.client.chat.completions.create(
             model="gpt-4o",  # Using the same model as the assistant
             messages=[
@@ -113,15 +108,12 @@ class EntryForm:
             temperature=0.7,
         )
         
-        progress(0.6, "Processing response...")
         # Extract the generated article
         generated_article = response.choices[0].message.content
         
-        progress(0.9, "Formatting output...")
         # Combine parameters summary with the generated article
         content = params_summary + "\n## 生成的文章\n\n" + generated_article + "\n\n請編輯上述文章或使用聊天功能獲取更多幫助。"
         
-        progress(1.0, "Done!")
         # Enable the chat interface
         return content, gr.update(visible=True), gr.update(visible=False)
 
