@@ -40,6 +40,12 @@ class EntryForm:
         )
         
         self.generate_button = gr.Button("生成初始文章")
+        
+        # Add the loading spinner component
+        self.spinner = gr.HTML(
+            '<div style="display:flex;justify-content:center;margin:10px;"><img src="https://cdnjs.cloudflare.com/ajax/libs/galleriffic/2.0.1/css/loader.gif" width="50"></div>', 
+            visible=False
+        )
 
     def generate_initial_content(self, grade_values, vocabulary_range_values, topic_range_values, grammar_range_values):
         # Create a summary of selected options
@@ -117,6 +123,9 @@ class EntryForm:
         # Enable the chat interface
         return content, gr.update(visible=True), gr.update(visible=False)
 
+    def loading_spinner(self):
+        return gr.HTML('<div style="display:flex;justify-content:center;margin:10px;"><img src="https://cdnjs.cloudflare.com/ajax/libs/galleriffic/2.0.1/css/loader.gif" width="50"></div>')
+
     def render(self):
         with gr.Group() as selection_ui:
             gr.Markdown("## 請選擇文章生成參數")
@@ -127,5 +136,6 @@ class EntryForm:
             self.grammar_range.render()
             self.topic_range.render()
             self.generate_button.render()
+            self.spinner.render()
             
         return selection_ui

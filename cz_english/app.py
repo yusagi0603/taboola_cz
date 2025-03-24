@@ -180,9 +180,17 @@ with gr.Blocks() as demo:
         
     # Connect generate button to show chat interface and populate textbox
     entry_form.generate_button.click(
-        entry_form.generate_initial_content,
+        fn=lambda: gr.update(visible=True),  # Show loading spinner
+        outputs=entry_form.spinner,
+        show_progress=False,
+    ).then(
+        fn=entry_form.generate_initial_content,
         inputs=[entry_form.grade, entry_form.vocabulary_range, entry_form.topic_range, entry_form.grammar_range],
-        outputs=[chat.textbox, chat_ui, entry_form_ui]
+        outputs=[chat.textbox, chat_ui, entry_form_ui],
+    ).then(
+        fn=lambda: gr.update(visible=False),  # Hide loading spinner when done
+        outputs=entry_form.spinner,
+        show_progress=False,
     )
             
     # Connect password events
