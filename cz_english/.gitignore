@@ -64,4 +64,6 @@ token.json
 Thumbs.db
 *.bak
 *.tmp
-*.temp 
+*.temp
+
+run.sh
