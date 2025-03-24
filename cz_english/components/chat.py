@@ -1,9 +1,15 @@
 import time
-import gradio as gr
-from config import CONVERSATION_STARTER
 import json
-from json_repair import repair_json
 import json_repair
+from datetime import datetime
+
+import gradio as gr
+from typing import List, Tuple
+
+from logger import app_logger
+from config import CONVERSATION_STARTER
+from utils import call_llm_to_generate_question, generate_docx_file
+
 
 class Chat:
     def __init__(self, client, assistant_id):
@@ -11,6 +17,7 @@ class Chat:
         self.assistant_id = assistant_id
         self.chat_ui = None  # Will store reference to the chat UI group
         self._define_components()
+        self.logger = app_logger
 
     def _define_components(self):
         
@@ -66,10 +73,49 @@ class Chat:
         self.button1 = gr.Button("題型1", elem_id="button1",render=False)
         self.button2 = gr.Button("題型2", elem_id="button2",render=False)
         self.button3 = gr.Button("題型3", elem_id="button3",render=False)
-        self.submit_button = gr.Button("產生考題", elem_id="submit_button",render=False)
+        self.submit_button = gr.Button("產生考卷", elem_id="submit_button",render=False)
+    
+    def _generate_final_exam_doc(
+            self, 
+            question_1, question_2, question_3
+        ):
+        """Compose the final exam from the three problem textboxes."""
+        
+        # Compose the full exam content
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        doc_file_name = f"英文考題 - {timestamp}"
+        # exam_question_template = """
+        # ===== {question_type} =====
+        # {question}
+        # """
+        # exam_content = ""
+
+        # for question_type, question in question_info_tuple:
+            # exam_content += exam_question_template.format(question_type=question_type, question=question)
+
+        # # Create a Google Doc with the exam content
+        # doc_url = create_google_doc(doc_file_name, exam_content)
+        
+        # if doc_url:
+        #     return f"考卷已生成並保存至 Google Docs: {doc_url}"
+        # else:
+        #     return "生成考卷時發生錯誤，請稍後再試。"
+
+        # Return the exam content as a downloadable document
+        question_info_tuple = [
+            ("題型1", question_1),
+            ("題型2", question_2),
+            ("題型3", question_3)
+        ]
+        doc_file_name = generate_docx_file(
+            doc_file_name,
+            question_info_tuple
+        )
+        
+        return doc_file_name, gr.update(visible=True) 
 
 
-    def handle_response(self, message, history, textbox_content):
+    def _handle_response(self, message, history, textbox_content):
         integrated_message = message
 
         if not (message == CONVERSATION_STARTER or textbox_content == ""):
@@ -133,7 +179,7 @@ class Chat:
             return gr.Dataset(samples=next_step_prompt, visible=True)
         return gr.Dataset(samples=[['-']], visible=False)
 
-    def handle_response2(self, message, history, textbox_content):
+    def handle_response_for_exceeding_token_quota(self, message, history, textbox_content):
         # Mock response data
         mock_response = {
             'current_lesson_plan': f"Here is a mock lesson plan based on: {textbox_content}",
@@ -148,44 +194,23 @@ class Chat:
         yield mock_response['suggestion'], mock_response['current_lesson_plan'], mock_response['next_step_prompt']
     
 
-    def add_problem(self, problem_type, problems):
-        problem_name = problem_type + str(time.time())
-        problems[problem_name] = problem_type
+    def add_problem(self, question_type, problems):
+        problem_name = question_type + str(time.time())
+        problems[problem_name] = question_type
         return problems
 
-    def generate_problem(self, problem_type):
-        if problem_type == "題型1":
-            prompt = "題型1"
-        elif problem_type == "題型2":
-            prompt = "題型2"
-        elif problem_type == "題型3":
-            prompt = "題型3"
-
-        thread = self.client.beta.threads.create()
-        self.client.beta.threads.messages.create(
-            thread_id=thread.id,
-            role="user",
-            content=prompt,
+    def _generate_question_based_on_question_type(self, question_type):
+        full_response = call_llm_to_generate_question(
+            self.client, question_type=question_type
         )
-        with self.client.beta.threads.runs.stream(
-            thread_id=thread.id,
-            assistant_id=self.assistant_id
-        ) as stream:
-            for text_delta in stream.text_deltas:
-                full_response += text_delta
 
         return full_response
 
-    def generate_final_exam_doc(self, textbox_content):
-        pass
-        
-
-
-
     def render(self):
-        # Create a group to contain the chat UI (initially hidden)
         with gr.Group(visible=False) as chat_ui:
+
             with gr.Row(equal_height=True):
+                # Left Column
                 with gr.Column():
                     self.chatbot.render()
                     self.prompt_input.render()
@@ -194,7 +219,6 @@ class Chat:
                     self.button1.render()
                     self.button2.render()
                     self.button3.render()
-                    self.submit_button.render()
                 
                 # Right column
                 with gr.Column():
@@ -211,7 +235,7 @@ class Chat:
 
 
                     gr.ChatInterface(
-                        self.handle_response,
+                        self._handle_response,
                         chatbot=self.chatbot,
                         textbox=self.prompt_input,
                         examples=[[CONVERSATION_STARTER, None]],
@@ -220,10 +244,22 @@ class Chat:
                         type="messages"
                     )
 
+            with gr.Row():
+                self.submit_button.render()
+            with gr.Row():
+                download_button = gr.DownloadButton("Download Word Document", visible=False)
+
+
             # TODO: Audrey uses this to add problems
-            self.button1.click(self.generate_problem, inputs=[self.button1], outputs=[self.textbox_prob1])
-            self.button2.click(self.generate_problem, inputs=[self.button2], outputs=[self.textbox_prob2])
-            self.button3.click(self.generate_problem, inputs=[self.button3], outputs=[self.textbox_prob3])
+            self.button1.click(self._generate_question_based_on_question_type, 
+                               inputs=[self.button1], 
+                               outputs=[self.textbox_prob1])
+            self.button2.click(self._generate_question_based_on_question_type, 
+                               inputs=[self.button2], 
+                               outputs=[self.textbox_prob2])
+            self.button3.click(self._generate_question_based_on_question_type, 
+                               inputs=[self.button3], 
+                               outputs=[self.textbox_prob3])
 
             # Set up event handlers
             self.quick_response.click(
@@ -237,4 +273,15 @@ class Chat:
                 self.quick_response
             )
         
+        self.submit_button.click(
+            fn=self._generate_final_exam_doc,
+            inputs=[
+                self.textbox_prob1,
+                self.textbox_prob2,
+                self.textbox_prob3
+            ],
+            outputs=[download_button, download_button]
+        )
+
         return chat_ui  # Return the group for access in the main app 
+# >>>>>>> 7ba5fc72cf3ee35c01e58bba4c641939e0ba901d:cz_english/components/chat.py
