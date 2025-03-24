@@ -199,17 +199,14 @@ with gr.Blocks() as demo:
     # Main UI 
     with gr.Group(visible=False) as main_ui:
         entry_form_ui = entry_form.render()
+        chat_ui = chat.render()
         
-        # Chat interface (initially hidden)
-        with gr.Group(visible=False) as chat_ui:
-            chat.render()
-        
-        # Connect generate button to show chat interface and populate textbox
-        entry_form.generate_button.click(
-            entry_form.generate_initial_content,
-            inputs=[entry_form.grade, entry_form.vocabulary_range, entry_form.topic_range, entry_form.grammar_range],
-            outputs=[chat.textbox, chat_ui, entry_form_ui]
-        )
+    # Connect generate button to show chat interface and populate textbox
+    entry_form.generate_button.click(
+        entry_form.generate_initial_content,
+        inputs=[entry_form.grade, entry_form.vocabulary_range, entry_form.topic_range, entry_form.grammar_range],
+        outputs=[chat.textbox, chat_ui, entry_form_ui]
+    )
             
     # submit button event
     submit_button.click(

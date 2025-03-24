@@ -9,6 +9,7 @@ class Chat:
     def __init__(self, client, assistant_id):
         self.client = client
         self.assistant_id = assistant_id
+        self.chat_ui = None  # Will store reference to the chat UI group
         self._define_components()
 
     def _define_components(self):
@@ -182,64 +183,58 @@ class Chat:
 
 
     def render(self):
+        # Create a group to contain the chat UI (initially hidden)
+        with gr.Group(visible=False) as chat_ui:
+            with gr.Row(equal_height=True):
+                with gr.Column():
+                    self.chatbot.render()
+                    self.prompt_input.render()
+                    # self.quick_response.render()
+                    self.hidden_list.render()
+                    self.button1.render()
+                    self.button2.render()
+                    self.button3.render()
+                    self.submit_button.render()
+                
+                # Right column
+                with gr.Column():
+                    self.textbox.render()
+                    self.textbox_prob1.render()
+                    self.textbox_prob2.render()
+                    self.textbox_prob3.render()
 
-        problem_state = gr.State({
-        })
-
-
-        with gr.Row(equal_height=True):
-            with gr.Column():
-                gr.Markdown("## 英文考題產生器")
-        with gr.Row(equal_height=True):
-            # Left column
-            with gr.Column():
-                self.chatbot.render()
-                self.prompt_input.render()
-                # self.quick_response.render()
-                self.hidden_list.render()
-                self.button1.render()
-                self.button2.render()
-                self.button3.render()
-                self.submit_button.render()
-            
-            # Right column
-            with gr.Column():
-                self.textbox.render()
-                self.textbox_prob1.render()
-                self.textbox_prob2.render()
-                self.textbox_prob3.render()
-
-                # TODO: Dynamic render problem textbox
-                # @gr.render(inputs=problem_state)
-                # def render_problem(problems):
-                #     for name, problem in enumerate(problems):
-                #         gr.Textbox(value=problem, interactive=True, elem_id=f"name")
+                    # TODO: Dynamic render problem textbox
+                    # @gr.render(inputs=problem_state)
+                    # def render_problem(problems):
+                    #     for name, problem in enumerate(problems):
+                    #         gr.Textbox(value=problem, interactive=True, elem_id=f"name")
 
 
-                gr.ChatInterface(
-                    self.handle_response,
-                    chatbot=self.chatbot,
-                    textbox=self.prompt_input,
-                    examples=[[CONVERSATION_STARTER, None]],
-                    additional_inputs=[self.textbox],
-                    additional_outputs=[self.textbox, self.hidden_list],
-                    type="messages"
-                )
+                    gr.ChatInterface(
+                        self.handle_response,
+                        chatbot=self.chatbot,
+                        textbox=self.prompt_input,
+                        examples=[[CONVERSATION_STARTER, None]],
+                        additional_inputs=[self.textbox],
+                        additional_outputs=[self.textbox, self.hidden_list],
+                        type="messages"
+                    )
 
-        # TODO: Audrey uses this to add problems
-        self.button1.click(self.generate_problem, inputs=[self.button1], outputs=[self.textbox_prob1])
-        self.button2.click(self.generate_problem, inputs=[self.button2], outputs=[self.textbox_prob2])
-        self.button3.click(self.generate_problem, inputs=[self.button3], outputs=[self.textbox_prob3])
+            # TODO: Audrey uses this to add problems
+            self.button1.click(self.generate_problem, inputs=[self.button1], outputs=[self.textbox_prob1])
+            self.button2.click(self.generate_problem, inputs=[self.button2], outputs=[self.textbox_prob2])
+            self.button3.click(self.generate_problem, inputs=[self.button3], outputs=[self.textbox_prob3])
 
-
-        # Set up event handlers
-        self.quick_response.click(
-            self.handle_quick_response_click,
-            self.quick_response,
-            self.prompt_input
-        )
-        self.hidden_list.change(
-            self.handle_quick_response_samples,
-            self.hidden_list,
-            self.quick_response
-        ) 
+            # Set up event handlers
+            self.quick_response.click(
+                self.handle_quick_response_click,
+                self.quick_response,
+                self.prompt_input
+            )
+            self.hidden_list.change(
+                self.handle_quick_response_samples,
+                self.hidden_list,
+                self.quick_response
+            )
+        
+        return chat_ui  # Return the group for access in the main app 
