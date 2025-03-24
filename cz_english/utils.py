@@ -263,11 +263,11 @@ def create_google_doc(self, title, content):
         app_logger.error(f"Error creating Google Doc: {str(e)}")
         return None
     
-def generate_docx_file(exam_title, question_info_tuple):
+def generate_docx_file(doc_file_name, question_info_tuple):
     
     # # Create a Word document
     doc = Document()
-    doc.add_heading(exam_title, 0)
+    doc.add_heading(doc_file_name, 0)
     
     # # Add each question to the document
     for question_type, question in question_info_tuple:
@@ -275,6 +275,7 @@ def generate_docx_file(exam_title, question_info_tuple):
         doc.add_paragraph(question)
         doc.add_paragraph("")  # Add some spacing
 
-    doc.save(exam_title)
+    doc.save(doc_file_name)
 
-    return exam_title
+    return doc_file_name
+

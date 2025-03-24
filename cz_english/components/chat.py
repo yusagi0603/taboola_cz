@@ -83,7 +83,7 @@ class Chat:
         
         # Compose the full exam content
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        exam_title = f"英文考題 - {timestamp}"
+        doc_file_name = f"英文考題 - {timestamp}"
         # exam_question_template = """
         # ===== {question_type} =====
         # {question}
@@ -94,7 +94,7 @@ class Chat:
             # exam_content += exam_question_template.format(question_type=question_type, question=question)
 
         # # Create a Google Doc with the exam content
-        # doc_url = create_google_doc(exam_title, exam_content)
+        # doc_url = create_google_doc(doc_file_name, exam_content)
         
         # if doc_url:
         #     return f"考卷已生成並保存至 Google Docs: {doc_url}"
@@ -107,12 +107,12 @@ class Chat:
             ("題型2", question_2),
             ("題型3", question_3)
         ]
-        temp_file_path = generate_docx_file(
-            exam_title,
+        doc_file_name = generate_docx_file(
+            doc_file_name,
             question_info_tuple
         )
         
-        return temp_file_path, gr.update(visible=True) 
+        return doc_file_name, gr.update(visible=True) 
 
 
     def _handle_response(self, message, history, textbox_content):
@@ -207,97 +207,6 @@ class Chat:
         return full_response
 
     def render(self):
-# <<<<<<< HEAD:cz_english/components/question_generator.py
-
-#         question_generator_stage = gr.State({
-#         })
-
-#         with gr.Row(equal_height=True):
-#             with gr.Column():
-#                 gr.Markdown("## 英文考題產生器")
-#         with gr.Row(equal_height=True):
-#             # Left column
-#             with gr.Column():
-#                 self.chatbot.render()
-#                 self.prompt_input.render()
-#                 # self.quick_response.render()
-#                 self.hidden_list.render()
-#                 self.button1.render()
-#                 self.button2.render()
-#                 self.button3.render()
-            
-#             # Right column
-#             with gr.Column():
-#                 self.textbox.render()
-#                 self.textbox_prob1.render()
-#                 self.textbox_prob2.render()
-#                 self.textbox_prob3.render()
-
-#                 # TODO: Dynamic render problem textbox
-#                 # @gr.render(inputs=question_generator_stage)
-#                 # def render_problem(problems):
-#                 #     for name, problem in enumerate(problems):
-#                 #         gr.Textbox(value=problem, interactive=True, elem_id=f"name")
-
-
-#                 gr.ChatInterface(
-#                     self._handle_response,
-#                     chatbot=self.chatbot,
-#                     textbox=self.prompt_input,
-#                     examples=[[CONVERSATION_STARTER, None]],
-#                     additional_inputs=[self.textbox],
-#                     additional_outputs=[self.textbox, self.hidden_list],
-#                     type="messages"
-#                 )
-
-#         with gr.Row():
-#             self.submit_button.render()
-#         with gr.Row():
-#             download_button = gr.DownloadButton("Download Word Document", visible=False)
-
-#         # TODO: Audrey uses this to add problems
-#         self.button1.click(
-#             self._generate_question_based_on_question_type, 
-#             inputs=[self.button1], 
-#             outputs=[self.textbox_prob1]
-#         )
-#         self.button2.click(
-#             self._generate_question_based_on_question_type, 
-#             inputs=[self.button2], 
-#             outputs=[self.textbox_prob2]
-#         )
-#         self.button3.click(
-#             self._generate_question_based_on_question_type, 
-#             inputs=[self.button3], 
-#             outputs=[self.textbox_prob3]
-#         )
-
-#         # Set up event handlers
-#         self.quick_response.click(
-#             self.handle_quick_response_click,
-#             self.quick_response,
-#             self.prompt_input
-#         )
-#         self.hidden_list.change(
-#             self.handle_quick_response_samples,
-#             self.hidden_list,
-#             self.quick_response
-#         ) 
-
-#         # Set up event handler for the submit button to generate the final exam
-#         self.submit_button.click(
-#             fn=self._generate_final_exam_doc,
-#             inputs=[
-#                 self.textbox_prob1,
-#                 self.textbox_prob2,
-#                 self.textbox_prob3
-#             ],
-#             outputs=[download_button, download_button]
-#         )
-# =======
-        # Create a group to contain the chat UI (initially hidden)
-
-        
         with gr.Group(visible=False) as chat_ui:
 
             with gr.Row(equal_height=True):

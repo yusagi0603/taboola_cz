@@ -2,8 +2,8 @@ import time
 
 from openai import OpenAI
 import gradio as gr
-from components.article_generator import generate_article_with_chat_interface
-from typing_extensions import override
+# from components.article_generator import generate_article_with_chat_interface
+# from typing_extensions import override
 from components.chat import Chat
 from components.entry_form import EntryForm
 from components.password import Password
@@ -19,9 +19,6 @@ from config import (
     RESPONSE_FORMAT,
     CONVERSATION_STARTER,
     VECTOR_STORE_NAME,
-)
-from utils import (
-    check_password
 )
 from logger import app_logger
 from client import llm_client
@@ -62,6 +59,7 @@ with gr.Blocks() as demo:
     )
             
     # Connect password events
+    # TODO: move to password.py
     submit_button.click(
         password.check_password,
         inputs=password_input,
