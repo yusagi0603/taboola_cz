@@ -10,9 +10,6 @@ import option
 from config import (
     OPENAI_API_KEY,
     ASSISTANT_ID,
-    ASSISTANT_INSTRUCTION,
-    RESPONSE_FORMAT,
-    ASSISTANT_USER_PROMPT
 )
 from utils import (
     check_password,
@@ -75,7 +72,6 @@ def generate_article_with_chat_interface(grade_values, vocabulary_range_values, 
         vocabulary_range_values=vocabulary_range_values       
     )
 
-    chat_box_component.set_generated_article(generated_article)
 
     # Combine parameters summary with the generated article
     # params_summary = _compose_params_summary(grade_values, vocabulary_range_values, topic_range_values, grammar_range_values)

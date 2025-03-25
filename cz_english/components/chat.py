@@ -34,7 +34,6 @@ class Chat:
     def __init__(self, client, assistant_id):
         self.client = client
         self.assistant_id = assistant_id
-        self.generated_article = ""
         self._define_components()
 
     def _define_components(self):
@@ -96,15 +95,15 @@ class Chat:
 
     def handle_response(self, message, history, textbox_content):
         integrated_message = message
+
         if message == CONVERSATION_STARTER:
-            format_dict = {
-                'generated_article': self.generated_article,
-                'message': message,
-            }
-            integrated_message = ARTICLE_REVISION_PROMPT.format(**format_dict)
+            integrated_message = ARTICLE_REVISION_PROMPT.format(
+                generated_article=textbox_content, 
+                message=message,
+            )
         elif textbox_content != "":
             integrated_message = ARTICLE_FORMAT_PROMPT.format(
-                generated_article=self.generated_article,
+                generated_article=textbox_content,  # Use the parameter
                 message=message,
                 textbox_content=textbox_content
             )
@@ -142,9 +141,6 @@ class Chat:
 
                 yield suggestion, current_lesson_plan, [[]]
 
-        if current_lesson_plan:
-            self.set_generated_article(current_lesson_plan)
-
         try:
             repaired_json = repair_json(full_response)
             if isinstance(repaired_json, str):
@@ -168,10 +164,8 @@ class Chat:
         problems[problem_name] = problem_type
         return problems
 
-    def set_generated_article(self, article):
-        self.generated_article = article
-    
-    def generate_problem(self, problem_type):
+    def generate_problem(self, problem_type, current_article):
+        
         if problem_type == "Cloze":
             prompt = CLOZE_PROMPT
         elif problem_type == "Comprehension":
@@ -180,7 +174,7 @@ class Chat:
             prompt = SUMMARY_PROMPT
 
         integrated_prompt = QUESTION_FORMAT_PROMPT.format(
-            generated_article=self.generated_article,
+            generated_article=current_article,
             prompt=prompt
         )
 
@@ -238,19 +232,17 @@ class Chat:
     def generate_final_exam_doc(self, textbox_content):
         pass
         
-    def append_problem(self, problem_type, current_content):
-        new_problem = self.generate_problem(problem_type)
+    def append_problem(self, problem_type, current_content, current_article):
+        new_problem = self.generate_problem(problem_type, current_article)
         
         if current_content.strip():
-            return current_content + "\n\n---\n\n" + new_problem
+            return current_content + "\n---\n" + new_problem
         else:
             return new_problem
 
     def render(self):
 
-        problem_state = gr.State({
-        })
-
+        problem_state = gr.State({})
 
         with gr.Row(equal_height=True):
             with gr.Column():
@@ -292,9 +284,9 @@ class Chat:
                 )
 
         # TODO: Audrey uses this to add problems
-        self.button1.click(self.append_problem, inputs=[self.button1, self.textbox_prob1], outputs=[self.textbox_prob1])
-        self.button2.click(self.append_problem, inputs=[self.button2, self.textbox_prob2], outputs=[self.textbox_prob2])
-        self.button3.click(self.append_problem, inputs=[self.button3, self.textbox_prob3], outputs=[self.textbox_prob3])
+        self.button1.click(self.append_problem, inputs=[self.button1, self.textbox_prob1, self.textbox], outputs=[self.textbox_prob1])
+        self.button2.click(self.append_problem, inputs=[self.button2, self.textbox_prob2, self.textbox], outputs=[self.textbox_prob2])
+        self.button3.click(self.append_problem, inputs=[self.button3, self.textbox_prob3, self.textbox], outputs=[self.textbox_prob3])
 
 
         # Set up event handlers
@@ -308,10 +300,3 @@ class Chat:
             self.hidden_list,
             self.quick_response
         )
-
-    def get_current_stage(self):
-        return self.current_stage
-    
-    def get_generated_questions(self):
-        return self.generated_questions
-    
