@@ -5,6 +5,12 @@ import json
 from json_repair import repair_json
 import re
 
+from datetime import datetime
+from typing import List, Tuple
+
+from logger import app_logger
+from utils import  generate_docx_file
+
 CONVERSATION_STARTER = "Click this button to make the passage longer"
 ARTICLE_REVISION_PATH = Path(__file__).parent.parent / "prompt" / "article_revision.jinja"
 ARTICLE_FORMAT_PROMPT = Path(__file__).parent.parent / "prompt" / "article_format.jinja"
@@ -30,11 +36,15 @@ with open(COMPREHENSION_GENERATION_PATH, 'r', encoding='utf-8') as f:
 with open(SUMMARY_GENERATION_PATH, 'r', encoding='utf-8') as f:
     SUMMARY_PROMPT = f.read()
 
+
+
 class Chat:
     def __init__(self, client, assistant_id):
         self.client = client
         self.assistant_id = assistant_id
+        self.chat_ui = None  # Will store reference to the chat UI group
         self._define_components()
+        self.logger = app_logger
 
     def _define_components(self):
         
@@ -91,9 +101,48 @@ class Chat:
         self.button2 = gr.Button("Comprehension", elem_id="button2",render=False)
         self.button3 = gr.Button("Summary", elem_id="button3",render=False)
         self.submit_button = gr.Button("產生考題", elem_id="submit_button",render=False)
+       
+    def _generate_final_exam_doc(
+            self, 
+            question_1, question_2, question_3
+        ):
+        """Compose the final exam from the three problem textboxes."""
+        
+        # Compose the full exam content
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        doc_file_name = f"英文考題 - {timestamp}"
+        # exam_question_template = """
+        # ===== {question_type} =====
+        # {question}
+        # """
+        # exam_content = ""
+
+        # for question_type, question in question_info_tuple:
+            # exam_content += exam_question_template.format(question_type=question_type, question=question)
+
+        # # Create a Google Doc with the exam content
+        # doc_url = create_google_doc(doc_file_name, exam_content)
+        
+        # if doc_url:
+        #     return f"考卷已生成並保存至 Google Docs: {doc_url}"
+        # else:
+        #     return "生成考卷時發生錯誤，請稍後再試。"
+
+        # Return the exam content as a downloadable document
+        question_info_tuple = [
+            ("題型1", question_1),
+            ("題型2", question_2),
+            ("題型3", question_3)
+        ]
+        doc_file_name = generate_docx_file(
+            doc_file_name,
+            question_info_tuple
+        )
+        
+        return doc_file_name, gr.update(visible=True) 
 
 
-    def handle_response(self, message, history, textbox_content):
+    def _handle_response(self, message, history, textbox_content):
         integrated_message = message
 
         if message == CONVERSATION_STARTER:
@@ -210,8 +259,22 @@ class Chat:
             question_content = last_json.get('current_lesson_plan', '')
             if question_content and self._validate_question_format(question_content):
                 return question_content
+    # def handle_response_for_exceeding_token_quota(self, message, history, textbox_content):
+    #     # Mock response data
+    #     mock_response = {
+    #         'current_lesson_plan': f"Here is a mock lesson plan based on: {textbox_content}",
+    #         'suggestion': "This is a mock suggestion for your content.",
+    #         'next_step_prompt': [["Continue", "Revise", "Start Over"]]
+    #     }
+        
+    #     # Simulate streaming by yielding partial responses
+    #     yield "Loading suggestion...", "", [[]]
+    #     yield mock_response['suggestion'], "", [[]]
+    #     yield mock_response['suggestion'], mock_response['current_lesson_plan'], [[]]
+    #     yield mock_response['suggestion'], mock_response['current_lesson_plan'], mock_response['next_step_prompt']
+    
 
-        return full_response
+
     
     def _validate_question_format(self, text):
         required_elements = [
@@ -229,9 +292,6 @@ class Chat:
                 return False
         return True
 
-    def generate_final_exam_doc(self, textbox_content):
-        pass
-        
     def append_problem(self, problem_type, current_content, current_article):
         new_problem = self.generate_problem(problem_type, current_article)
         
@@ -241,52 +301,52 @@ class Chat:
             return new_problem
 
     def render(self):
+        with gr.Group(visible=False) as chat_ui:
 
-        problem_state = gr.State({})
+            with gr.Row(equal_height=True):
+                # Left Column
+                with gr.Column():
+                    self.chatbot.render()
+                    self.prompt_input.render()
+                    # self.quick_response.render()
+                    self.hidden_list.render()
+                    self.button1.render()
+                    self.button2.render()
+                    self.button3.render()
+                
+                # Right column
+                with gr.Column():
+                    self.textbox.render()
+                    self.textbox_prob1.render()
+                    self.textbox_prob2.render()
+                    self.textbox_prob3.render()
 
-        with gr.Row(equal_height=True):
-            with gr.Column():
-                gr.Markdown("## 英文考題產生器")
-        with gr.Row(equal_height=True):
-            # Left column
-            with gr.Column():
-                self.chatbot.render()
-                self.prompt_input.render()
-                # self.quick_response.render()
-                self.hidden_list.render()
-                self.button1.render()
-                self.button2.render()
-                self.button3.render()
+                    # TODO: Dynamic render problem textbox
+                    # @gr.render(inputs=problem_state)
+                    # def render_problem(problems):
+                    #     for name, problem in enumerate(problems):
+                    #         gr.Textbox(value=problem, interactive=True, elem_id=f"name")
+
+
+                    gr.ChatInterface(
+                        self._handle_response,
+                        chatbot=self.chatbot,
+                        textbox=self.prompt_input,
+                        examples=[[CONVERSATION_STARTER, None]],
+                        additional_inputs=[self.textbox],
+                        additional_outputs=[self.textbox, self.hidden_list],
+                        type="messages"
+                    )
+
+            with gr.Row():
                 self.submit_button.render()
-            
-            # Right column
-            with gr.Column():
-                self.textbox.render()
-                self.textbox_prob1.render()
-                self.textbox_prob2.render()
-                self.textbox_prob3.render()
+            with gr.Row():
+                download_button = gr.DownloadButton("Download Word Document", visible=False)
 
-                # TODO: Dynamic render problem textbox
-                # @gr.render(inputs=problem_state)
-                # def render_problem(problems):
-                #     for name, problem in enumerate(problems):
-                #         gr.Textbox(value=problem, interactive=True, elem_id=f"name")
-
-
-                gr.ChatInterface(
-                    self.handle_response,
-                    chatbot=self.chatbot,
-                    textbox=self.prompt_input,
-                    examples=[[CONVERSATION_STARTER, None]],
-                    additional_inputs=[self.textbox],
-                    additional_outputs=[self.textbox, self.hidden_list],
-                    type="messages"
-                )
-
-        # TODO: Audrey uses this to add problems
         self.button1.click(self.append_problem, inputs=[self.button1, self.textbox_prob1, self.textbox], outputs=[self.textbox_prob1])
         self.button2.click(self.append_problem, inputs=[self.button2, self.textbox_prob2, self.textbox], outputs=[self.textbox_prob2])
         self.button3.click(self.append_problem, inputs=[self.button3, self.textbox_prob3, self.textbox], outputs=[self.textbox_prob3])
+
 
 
         # Set up event handlers
@@ -300,3 +360,15 @@ class Chat:
             self.hidden_list,
             self.quick_response
         )
+        
+        self.submit_button.click(
+            fn=self._generate_final_exam_doc,
+            inputs=[
+                self.textbox_prob1,
+                self.textbox_prob2,
+                self.textbox_prob3
+            ],
+            outputs=[download_button, download_button]
+        )
+
+        return chat_ui  # Return the group for access in the main app 
