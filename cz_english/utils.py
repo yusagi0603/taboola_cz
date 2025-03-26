@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from typing_extensions import override
 
@@ -6,23 +7,22 @@ from config import (
     OPENAI_API_KEY,
     ASSISTANT_NAME,
     ASSISTANT_DESCRIPTION,
-    ASSISTANT_INSTRUCTION,
     ASSISTANT_MODEL,
-    RESPONSE_FORMAT,
     CORRECT_PASSWORD,
     ASSISTANT_ID,
-    ASSISTANT_USER_PROMPT
 )
 
 from openai import AssistantEventHandler
 
-import os
 import json
 
+from docx import Document
+    
+from logger import app_logger
+from client import llm_client
 
-from pydrive.auth import GoogleAuth
-from pydrive.drive import GoogleDrive
-from oauth2client.client import GoogleCredentials
+
+
 from openai import OpenAI
 import gradio as gr
 from json_repair import repair_json
@@ -30,11 +30,15 @@ from typing_extensions import override
 from openai import OpenAI
 from openai.types.beta.threads import Text, TextDelta
 from openai.types.beta.threads.runs import ToolCall, ToolCallDelta
-from docx import Document
-import tempfile
-    
-from logger import app_logger
-from client import llm_client
+
+ARTICLE_GENERATION_PATH = Path(__file__).parent / "prompt" / "article_generation.jinja"
+QUESTION_FORMAT_PATH = Path(__file__).parent / "prompt" / "question_format.jinja"
+
+with open(ARTICLE_GENERATION_PATH, 'r', encoding='utf-8') as f:
+    ARTICLE_GENERATION = f.read()
+
+with open(QUESTION_FORMAT_PATH, 'r', encoding='utf-8') as f:
+    QUESTION_FORMAT = f.read()
 
 
 # spent 4m 50s downloading all 175 files
@@ -88,44 +92,6 @@ from client import llm_client
 #   return vector_store.id
 
 
-# Create a completely new assistant
-# def create_assistant(vector_store_id):
-#   assistant = client.beta.assistants.create(
-#     name=ASSISTANT_NAME,
-#     description=ASSISTANT_DESCRIPTION,
-#     instructions=ASSISTANT_INSTRUCTION,
-#     model=ASSISTANT_MODEL,
-#     tools=[{"type": "file_search"}],
-#     tool_resources={'file_search': {'vector_store_ids': [vector_store_id]}},
-#     response_format=RESPONSE_FORMAT
-#   )
-#   show_json(assistant)
-#   return assistant.id
-
-
-# Update existing assistant through ID (please customize prefered inputs)
-# def update_assistant(assistant_id):
-#   assistant = client.beta.assistants.update(
-#     assistant_id=assistant_id,
-#     name=ASSISTANT_NAME,
-#     description=ASSISTANT_DESCRIPTION,
-#     instructions=ASSISTANT_INSTRUCTION,
-#     model=ASSISTANT_MODEL,
-#     tools=[{"type": "file_search"}],
-#     # tool_resources={'file_search': {'vector_store_ids': [vector_store_id]}},
-#     response_format=RESPONSE_FORMAT
-#   )
-#   show_json(assistant)
-
-
-# Update assistant if needed
-# assistant = client.beta.assistants.update(
-#     assistant_id=ASSISTANT_ID,
-#     instructions=ASSISTANT_INSTRUCTION,
-#     response_format=RESPONSE_FORMAT
-# )
-# show_json(assistant)
-
 
 def check_password(input_password):
     if input_password == CORRECT_PASSWORD:
@@ -151,55 +117,21 @@ def _call_llm_with_prompt(system_prompt, user_prompt, llm_client=llm_client, res
 def call_llm_to_generate_article(
         llm_client, grade_values, vocabulary_range_values, topic_range_values, grammar_range_values
     ):
-  
-    system_prompt, user_prompt = ASSISTANT_INSTRUCTION, ASSISTANT_USER_PROMPT.format(
+
+    user_prompt = ARTICLE_GENERATION.format(
         grade_values=grade_values,
         topic_values=topic_range_values,
         grammar_values=grammar_range_values,
         vocabulary_values=vocabulary_range_values
     )
 
-    # Use Assistant API to generate article
-    # user_prompt = ASSISTANT_USER_PROMPT.format(
-    #     grade_values=grade_values,
-    #     topic_values=topic_range_values,
-    #     grammar_values=grammar_range_values,
-    #     vocabulary_values=vocabulary_range_values
-    # )
-    # print(user_prompt)
-    # # Create a new user message for the given thread
-    # message = client.beta.threads.messages.create(
-    #     thread_id=thread.id,
-    #     role="user",
-    #     content=user_prompt
-    # )
-
-    # # Run an wait for the assistant to complete the task
-    # run = client.beta.threads.runs.create_and_poll(
-    #     thread_id=thread.id,
-    #     assistant_id=ASSISTANT_ID,
-    #     instructions=ASSISTANT_INSTRUCTION,
-    #     response_format=RESPONSE_FORMAT
-    # )
-
-    # # TODO: set timeout
-    # while run.status != 'completed':
-    #     print(run.status)
-    #     time.sleep(2)
-
-    # # Extract the messages from the thread
-    # message_responses = client.beta.threads.messages.list(
-    #     thread_id=thread.id
-    # )
-
-    # generated_article = message_responses.data[0].content[0].text.value
-
+  
     # Use ChatCompletion API to generate article
     generated_article = _call_llm_with_prompt(
         system_prompt=None, 
         user_prompt=user_prompt, 
         llm_client=llm_client, 
-        response_format=RESPONSE_FORMAT
+        response_format=None
     )
     return generated_article
 
@@ -212,7 +144,7 @@ def call_llm_to_generate_question(llm_client, question_type):
         system_prompt=system_prompt,
         user_prompt=user_prompt,
         llm_client=llm_client,
-        response_format=None
+        response_format=QUESTION_FORMAT
     )
     return generated_question
 

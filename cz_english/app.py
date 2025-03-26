@@ -1,24 +1,11 @@
-import time
 
-from openai import OpenAI
 import gradio as gr
-# from components.article_generator import generate_article_with_chat_interface
-# from typing_extensions import override
 from components.chat import Chat
 from components.entry_form import EntryForm
 from components.password import Password
 
-import option
 from config import (
-    ASSISTANT_ID,
-    OPENAI_API_KEY,
-    ASSISTANT_NAME,
-    ASSISTANT_DESCRIPTION,
-    ASSISTANT_INSTRUCTION,
-    ASSISTANT_MODEL,
-    RESPONSE_FORMAT,
-    CONVERSATION_STARTER,
-    VECTOR_STORE_NAME,
+    ASSISTANT_ID
 )
 from logger import app_logger
 from client import llm_client
@@ -28,13 +15,6 @@ existed_assistants = llm_client.beta.assistants.list(
     order="desc",
     limit="20",
 )
-
-# app_logger.info("Existed assistants:")
-# for assistant in existed_assistants:
-    # app_logger.info("  ", assistant.id, assistant.name)
-
-# chat_box_component = QuestionGenerator(llm_client, ASSISTANT_ID)
-
 
 
 # Initialize components

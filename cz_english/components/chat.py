@@ -1,14 +1,41 @@
+from pathlib import Path
 import time
-import json
-import json_repair
-from datetime import datetime
-
 import gradio as gr
+import json
+from json_repair import repair_json
+import re
+
+from datetime import datetime
 from typing import List, Tuple
 
 from logger import app_logger
-from config import CONVERSATION_STARTER
-from utils import call_llm_to_generate_question, generate_docx_file
+from utils import  generate_docx_file
+
+CONVERSATION_STARTER = "Click this button to make the passage longer"
+ARTICLE_REVISION_PATH = Path(__file__).parent.parent / "prompt" / "article_revision.jinja"
+ARTICLE_FORMAT_PROMPT = Path(__file__).parent.parent / "prompt" / "article_format.jinja"
+QUESTION_FORMAT_PROMPT = Path(__file__).parent.parent / "prompt" / "question_format.jinja"
+CLOZE_GENERATION_PATH = Path(__file__).parent.parent / "prompt" / "cloze_generation.jinja"
+COMPREHENSION_GENERATION_PATH = Path(__file__).parent.parent / "prompt" / "comprehension_generation.jinja"
+SUMMARY_GENERATION_PATH = Path(__file__).parent.parent / "prompt" / "summary_generation.jinja"
+with open(ARTICLE_REVISION_PATH, 'r', encoding='utf-8') as f:
+    ARTICLE_REVISION_PROMPT = f.read()
+
+with open(ARTICLE_FORMAT_PROMPT, 'r', encoding='utf-8') as f:
+    ARTICLE_FORMAT_PROMPT = f.read()
+
+with open(QUESTION_FORMAT_PROMPT, 'r', encoding='utf-8') as f:
+    QUESTION_FORMAT_PROMPT = f.read()
+
+with open(CLOZE_GENERATION_PATH, 'r', encoding='utf-8') as f:
+    CLOZE_PROMPT = f.read()
+
+with open(COMPREHENSION_GENERATION_PATH, 'r', encoding='utf-8') as f:
+    COMPREHENSION_PROMPT = f.read()
+
+with open(SUMMARY_GENERATION_PATH, 'r', encoding='utf-8') as f:
+    SUMMARY_PROMPT = f.read()
+
 
 
 class Chat:
@@ -51,30 +78,30 @@ class Chat:
         # TODO: Yu uses this to generate final exam questions
         # TOOD: Audrey uses this to populate the problems
         self.textbox_prob1 = gr.Textbox(  # Canvas
-            label="題型1",  
+            label="Cloze",  
             lines=4,
             render=False,
             interactive=True
         )
         self.textbox_prob2 = gr.Textbox(  # Canvas
-            label="題型2",
+            label="Comprehension",
             lines=4,
             render=False,
             interactive=True
         )
         self.textbox_prob3 = gr.Textbox(  # Canvas
-            label="題型3",
+            label="Summary",
             lines=4,
             render=False,
             interactive=True
         )
 
         # TODO: Audrey uses this to add problems
-        self.button1 = gr.Button("題型1", elem_id="button1",render=False)
-        self.button2 = gr.Button("題型2", elem_id="button2",render=False)
-        self.button3 = gr.Button("題型3", elem_id="button3",render=False)
-        self.submit_button = gr.Button("產生考卷", elem_id="submit_button",render=False)
-    
+        self.button1 = gr.Button("Cloze", elem_id="button1",render=False)
+        self.button2 = gr.Button("Comprehension", elem_id="button2",render=False)
+        self.button3 = gr.Button("Summary", elem_id="button3",render=False)
+        self.submit_button = gr.Button("產生考題", elem_id="submit_button",render=False)
+       
     def _generate_final_exam_doc(
             self, 
             question_1, question_2, question_3
@@ -118,20 +145,17 @@ class Chat:
     def _handle_response(self, message, history, textbox_content):
         integrated_message = message
 
-        if not (message == CONVERSATION_STARTER or textbox_content == ""):
-            integrated_message = f"""
-            用戶當前的需求：
-            {message}
-
-            用戶對您生成的題目進行了以下修改：
-            {textbox_content}
-
-            請根據用戶的需求和修改內容，更新題目，並依照步驟生成下一部分內容。
-            確保您：
-            1. 完整保留用戶的修改。
-            2. 提供清晰的建議（`suggestion`）。
-            3. 提供下一步的行動選項（`next_step_prompt`）。
-            """
+        if message == CONVERSATION_STARTER:
+            integrated_message = ARTICLE_REVISION_PROMPT.format(
+                generated_article=textbox_content, 
+                message=message,
+            )
+        elif textbox_content != "":
+            integrated_message = ARTICLE_FORMAT_PROMPT.format(
+                generated_article=textbox_content,  # Use the parameter
+                message=message,
+                textbox_content=textbox_content
+            )
 
         thread = self.client.beta.threads.create()
         self.client.beta.threads.messages.create(
@@ -151,20 +175,25 @@ class Chat:
             for text_delta in stream.text_deltas:
                 full_response += text_delta
 
-                repaired_json = json_repair.loads(full_response)
                 try:
+                    # Use repair_json function instead of json_repair.loads
+                    repaired_json = repair_json(full_response)
+                    if isinstance(repaired_json, str):
+                        repaired_json = json.loads(repaired_json)
+                    
                     current_lesson_plan = repaired_json.get('current_lesson_plan', '')
-                except:
-                    current_lesson_plan = ""
-                try:
+                    
                     suggestion = repaired_json.get('suggestion', '')
-                except:
-                    suggestion = ""
+                except Exception as e:
+                    print(f"Error parsing JSON: {e}")
+                    pass
 
                 yield suggestion, current_lesson_plan, [[]]
 
         try:
-            repaired_json = json.loads(full_response)
+            repaired_json = repair_json(full_response)
+            if isinstance(repaired_json, str):
+                repaired_json = json.loads(repaired_json)
             next_step_prompt = repaired_json.get('next_step_prompt', [["進入下一步"]])
         except:
             next_step_prompt = [["進入下一步"]]
@@ -179,32 +208,97 @@ class Chat:
             return gr.Dataset(samples=next_step_prompt, visible=True)
         return gr.Dataset(samples=[['-']], visible=False)
 
-    def handle_response_for_exceeding_token_quota(self, message, history, textbox_content):
-        # Mock response data
-        mock_response = {
-            'current_lesson_plan': f"Here is a mock lesson plan based on: {textbox_content}",
-            'suggestion': "This is a mock suggestion for your content.",
-            'next_step_prompt': [["Continue", "Revise", "Start Over"]]
-        }
-        
-        # Simulate streaming by yielding partial responses
-        yield "Loading suggestion...", "", [[]]
-        yield mock_response['suggestion'], "", [[]]
-        yield mock_response['suggestion'], mock_response['current_lesson_plan'], [[]]
-        yield mock_response['suggestion'], mock_response['current_lesson_plan'], mock_response['next_step_prompt']
-    
-
-    def add_problem(self, question_type, problems):
-        problem_name = question_type + str(time.time())
-        problems[problem_name] = question_type
+    def add_problem(self, problem_type, problems):
+        problem_name = problem_type + str(time.time())
+        problems[problem_name] = problem_type
         return problems
 
-    def _generate_question_based_on_question_type(self, question_type):
-        full_response = call_llm_to_generate_question(
-            self.client, question_type=question_type
+    def generate_problem(self, problem_type, current_article):
+        
+        if problem_type == "Cloze":
+            prompt = CLOZE_PROMPT
+        elif problem_type == "Comprehension":
+            prompt = COMPREHENSION_PROMPT
+        elif problem_type == "Summary":
+            prompt = SUMMARY_PROMPT
+
+        integrated_prompt = QUESTION_FORMAT_PROMPT.format(
+            generated_article=current_article,
+            prompt=prompt
         )
 
-        return full_response
+        thread = self.client.beta.threads.create()
+        self.client.beta.threads.messages.create(
+            thread_id=thread.id,
+            role="user",
+            content=integrated_prompt,
+        )
+        
+        full_response = "" 
+        
+        with self.client.beta.threads.runs.stream(
+            thread_id=thread.id,
+            assistant_id=self.assistant_id
+        ) as stream:
+            for text_delta in stream.text_deltas:
+                full_response += text_delta
+        
+        json_objects = []
+        start_positions = [m.start() for m in re.finditer(r'{\s*"', full_response)]
+        
+        for start in start_positions:
+            try:
+                json_str = full_response[start:]
+                parsed = json.loads(json_str)
+                json_objects.append(parsed)
+            except:
+                pass
+
+        if json_objects:
+            last_json = json_objects[-1]
+            question_content = last_json.get('current_lesson_plan', '')
+            if question_content and self._validate_question_format(question_content):
+                return question_content
+    # def handle_response_for_exceeding_token_quota(self, message, history, textbox_content):
+    #     # Mock response data
+    #     mock_response = {
+    #         'current_lesson_plan': f"Here is a mock lesson plan based on: {textbox_content}",
+    #         'suggestion': "This is a mock suggestion for your content.",
+    #         'next_step_prompt': [["Continue", "Revise", "Start Over"]]
+    #     }
+        
+    #     # Simulate streaming by yielding partial responses
+    #     yield "Loading suggestion...", "", [[]]
+    #     yield mock_response['suggestion'], "", [[]]
+    #     yield mock_response['suggestion'], mock_response['current_lesson_plan'], [[]]
+    #     yield mock_response['suggestion'], mock_response['current_lesson_plan'], mock_response['next_step_prompt']
+    
+
+
+    
+    def _validate_question_format(self, text):
+        required_elements = [
+            r'Question: ',
+            r'Options:',
+            r'A\) ',
+            r'B\) ',
+            r'C\) ',
+            r'D\) ',
+            r'Answer: [A-D]\)'
+        ]
+        
+        for element in required_elements:
+            if not re.search(element, text, re.MULTILINE):
+                return False
+        return True
+
+    def append_problem(self, problem_type, current_content, current_article):
+        new_problem = self.generate_problem(problem_type, current_article)
+        
+        if current_content.strip():
+            return current_content + "\n---\n" + new_problem
+        else:
+            return new_problem
 
     def render(self):
         with gr.Group(visible=False) as chat_ui:
@@ -249,29 +343,23 @@ class Chat:
             with gr.Row():
                 download_button = gr.DownloadButton("Download Word Document", visible=False)
 
+        self.button1.click(self.append_problem, inputs=[self.button1, self.textbox_prob1, self.textbox], outputs=[self.textbox_prob1])
+        self.button2.click(self.append_problem, inputs=[self.button2, self.textbox_prob2, self.textbox], outputs=[self.textbox_prob2])
+        self.button3.click(self.append_problem, inputs=[self.button3, self.textbox_prob3, self.textbox], outputs=[self.textbox_prob3])
 
-            # TODO: Audrey uses this to add problems
-            self.button1.click(self._generate_question_based_on_question_type, 
-                               inputs=[self.button1], 
-                               outputs=[self.textbox_prob1])
-            self.button2.click(self._generate_question_based_on_question_type, 
-                               inputs=[self.button2], 
-                               outputs=[self.textbox_prob2])
-            self.button3.click(self._generate_question_based_on_question_type, 
-                               inputs=[self.button3], 
-                               outputs=[self.textbox_prob3])
 
-            # Set up event handlers
-            self.quick_response.click(
-                self.handle_quick_response_click,
-                self.quick_response,
-                self.prompt_input
-            )
-            self.hidden_list.change(
-                self.handle_quick_response_samples,
-                self.hidden_list,
-                self.quick_response
-            )
+
+        # Set up event handlers
+        self.quick_response.click(
+            self.handle_quick_response_click,
+            self.quick_response,
+            self.prompt_input
+        )
+        self.hidden_list.change(
+            self.handle_quick_response_samples,
+            self.hidden_list,
+            self.quick_response
+        )
         
         self.submit_button.click(
             fn=self._generate_final_exam_doc,
@@ -284,4 +372,3 @@ class Chat:
         )
 
         return chat_ui  # Return the group for access in the main app 
-# >>>>>>> 7ba5fc72cf3ee35c01e58bba4c641939e0ba901d:cz_english/components/chat.py

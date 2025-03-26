@@ -1,0 +1,41 @@
+{
+    "type": "json_schema",
+    "json_schema": {
+        "name": "lesson_plan_response",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "stage": {
+                    "type": "string",
+                    "description": "The current stage of the process: 'initial', 'passage_generation', or 'question_generation'."
+                },
+                "current_lesson_plan": {
+                    "type": "string",
+                    "description": "The current generated reading passage content. If the process is 'Reading Passage Generation Stage ', this value should be an empty list."
+                },
+                "suggestion": {
+                    "type": "string",
+                    "description": "Suggestions for improving the content and encouraging the user to proceed to the next step."
+                },
+                "next_step_prompt": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "description": "Provides the user with next step options, formatted as a nested list."
+                }
+            },
+            "required": [
+                "stage",
+                "current_lesson_plan",
+                "suggestion",
+                "next_step_prompt"
+            ],
+            "additionalProperties": false
+        },
+        "strict": true
+    }
+}
