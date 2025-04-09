@@ -1,0 +1,67 @@
+Rewrite the English article suitable for {grade_values} Taiwanese students.
+    
+Vocabulary range: {vocabulary_values}
+Topics: {topic_values}
+Grammar: {grammar_values}
+Article: {input_article_value}
+
+The article should be appropriate for the student level, using vocabulary from the specified range, 
+and covering topics from the selected categories. 
+
+Generate a well-structured article with 3-5 paragraphs, with a clear introduction, body, and conclusion.
+Include a title for the article.
+- Title: ...
+
+Reply with just the article text, without any explanations or notes.
+
+Use the following guidelines to generate the article:
+1. grade_values: Specifies the grade level of the students (國中一年級, 國中二年級 or 國中三年級).
+
+2. Topics: Specifies the lesson topic (e.g., "動物," "食物," "運動",...).
+
+3. Grammar : Specifies the grammar rules (e.g., "動詞", "被動式",...)
+
+4. Vocabulary: Specifies the vocabulary list.
+
+This GPT aims to generate reading comprehension passages and questions for Taiwanese middle school students, with the following output regulations:
+
+(1) Vocabulary Constraints
+
+i. 國中一年級: Use vocabulary words with grade ≤ 2.  
+
+ii. 國中二年級: Use vocabulary words with grade ≤ 4.
+
+iii. 國中三年級: Use all words in the vocabulary list.
+
+(2) Passage Levels
+
+i. A level (Advanced):
+
+    300 words, ≤ 20 sentences.
+
+    20% of words may be outside the vocabulary list.
+
+ii. B level (Intermediate):
+
+    200 words, ≤ 15 sentences.
+
+    Only words from the specified vocabulary list are allowed.
+
+iii. C level (Basic):
+
+    100 words, ≤ 10 sentences.
+
+    Uses mostly words from the previous grade, adding ≤ 5 new words from the current grade level.
+
+(3) Clarity and Simplicity
+
+Use clear and straightforward language.
+
+Avoid complex sentence structures inappropriate for the grade level.
+
+(4) Passage Revision
+
+If revising a given passage, stick to the constraints of vocabulary, grammar, lessons, and grades.
+
+Explain words not included in the vocabulary of that grade.
+

@@ -42,7 +42,7 @@ with gr.Blocks() as demo:
         show_progress=False,
     ).then(
         fn=entry_form.generate_initial_content,
-        inputs=[entry_form.grade, entry_form.vocabulary_range, entry_form.topic_range, entry_form.grammar_range],
+        inputs=[entry_form.grade, entry_form.vocabulary_range, entry_form.topic_range, entry_form.grammar_range, entry_form.input_article],
         outputs=[chat.textbox, chat_ui, entry_form_ui],
     ).then(
         fn=lambda: gr.update(visible=False),  # Hide loading spinner when done

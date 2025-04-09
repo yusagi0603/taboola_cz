@@ -18,28 +18,30 @@ class EntryForm:
 
     def _define_components(self):
         # Initialize components
-        self.grade = gr.Dropdown(
+        self.grade = gr.CheckboxGroup(
             choices=self.grade_options,
             label="學生年級",
-            multiselect=True
         )
         
-        self.vocabulary_range = gr.Dropdown(
+        self.vocabulary_range = gr.CheckboxGroup(
             choices=self.vocabulary_options,
             label="單字範圍",
-            multiselect=True
         )
 
-        self.grammar_range = gr.Dropdown(
+        self.grammar_range = gr.CheckboxGroup(
             choices=self.grammar_options,
             label="文法範圍",
-            multiselect=True
         )
         
-        self.topic_range = gr.Dropdown(
+        self.topic_range = gr.CheckboxGroup(
             choices=self.topic_options,
             label="主題範圍",
-            multiselect=True
+        )
+
+        self.input_article = gr.Textbox(
+            label="初始文章",
+            lines=5,
+            render=True
         )
         
         self.generate_button = gr.Button("生成初始文章")
@@ -50,52 +52,18 @@ class EntryForm:
             visible=False
         )
 
-    def generate_initial_content(self, grade_values, vocabulary_range_values, topic_range_values, grammar_range_values):
-        # Create a summary of selected options
-        def _compose_params_summary(grade_values, vocabulary_range_values, topic_range_values, grammar_range_values):
-            params_summary = "## 初始文章生成參數\n\n"
-
-            params_summary += "### 學生年級\n"
-            if grade_values:
-                params_summary += "選擇的年級: " + ", ".join(grade_values) + "\n\n"
-            else:
-                params_summary += "未選擇年級\n\n"
-
-            params_summary += "### 單字範圍\n"
-            if vocabulary_range_values:
-                params_summary += "選擇的單字: " + ", ".join(vocabulary_range_values) + "\n\n"
-            else:
-                params_summary += "未選擇單字\n\n"
-
-            params_summary += "### 主題範圍\n"
-            if topic_range_values:
-                params_summary += "選擇的主題: " + ", ".join(topic_range_values) + "\n\n"
-            else:
-                params_summary += "未選擇主題\n\n"
-
-            params_summary += "### 文法範圍\n"
-            if grammar_range_values:
-                params_summary += "選擇的文法: " + ", ".join(grammar_range_values) + "\n\n"
-            else:
-                params_summary += "未選擇文法\n\n"
-            return params_summary
+    def generate_initial_content(self, grade_values, vocabulary_range_values, topic_range_values, grammar_range_values, input_article_value):
 
         generated_article = call_llm_to_generate_article(
-            llm_client=self.llm_client,
             grade_values=grade_values,
             topic_range_values=topic_range_values,
             grammar_range_values=grammar_range_values,
-            vocabulary_range_values=vocabulary_range_values
+            vocabulary_range_values=vocabulary_range_values,
+            input_article_value=input_article_value
         )
-
-        # Combine parameters summary with the generated article
-        params_summary = _compose_params_summary(
-            grade_values, vocabulary_range_values, topic_range_values, grammar_range_values
-        )
-        content = params_summary + "\n## 生成的文章\n\n" + generated_article + "\n\n請編輯上述文章或使用聊天功能獲取更多幫助。"
 
         # Enable the chat interface
-        return content, gr.update(visible=True), gr.update(visible=False)
+        return generated_article, gr.update(visible=True), gr.update(visible=False)
 
     def render(self):
         with gr.Group() as selection_ui:
@@ -106,6 +74,7 @@ class EntryForm:
             self.vocabulary_range.render()
             self.grammar_range.render()
             self.topic_range.render()
+            self.input_article.render()
             self.generate_button.render()
             self.spinner.render()
 
