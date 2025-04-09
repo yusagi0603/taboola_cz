@@ -21,21 +21,17 @@ from docx import Document
 from logger import app_logger
 from client import llm_client
 
-
-
-from openai import OpenAI
 import gradio as gr
-from json_repair import repair_json
-from typing_extensions import override
-from openai import OpenAI
-from openai.types.beta.threads import Text, TextDelta
-from openai.types.beta.threads.runs import ToolCall, ToolCallDelta
 
 ARTICLE_GENERATION_PATH = Path(__file__).parent / "prompt" / "article_generation.jinja"
+ARTICLE_REWRITE_PATH = Path(__file__).parent / "prompt" / "article_rewrite.jinja"
 QUESTION_FORMAT_PATH = Path(__file__).parent / "prompt" / "question_format.jinja"
 
 with open(ARTICLE_GENERATION_PATH, 'r', encoding='utf-8') as f:
     ARTICLE_GENERATION = f.read()
+
+with open(ARTICLE_REWRITE_PATH, 'r', encoding='utf-8') as f:
+    ARTICLE_REWRITE = f.read()
 
 with open(QUESTION_FORMAT_PATH, 'r', encoding='utf-8') as f:
     QUESTION_FORMAT = f.read()
@@ -100,7 +96,7 @@ def check_password(input_password):
         return gr.update(visible=True), gr.update(visible=False), gr.update(value="Wrong Password. Please Retry. hint: channel name", visible=True)
 
 
-def _call_llm_with_prompt(system_prompt, user_prompt, llm_client=llm_client, response_format=None):
+def _call_llm_with_prompt(system_prompt, user_prompt, response_format=None):
     msg_lst = []
     for role, prompt in zip(["system", "user"], [system_prompt, user_prompt]):
         if prompt is not None:
@@ -116,28 +112,36 @@ def _call_llm_with_prompt(system_prompt, user_prompt, llm_client=llm_client, res
 
 
 def call_llm_to_generate_article(
-        llm_client, grade_values, vocabulary_range_values, topic_range_values, grammar_range_values
+        grade_values, vocabulary_range_values, topic_range_values, grammar_range_values, input_article_value
     ):
 
-    user_prompt = ARTICLE_GENERATION.format(
-        grade_values=grade_values,
-        topic_values=topic_range_values,
-        grammar_values=grammar_range_values,
-        vocabulary_values=vocabulary_range_values
-    )
+    if input_article_value:
+        user_prompt = ARTICLE_REWRITE.format(
+            grade_values=grade_values,
+            topic_values=topic_range_values,
+            grammar_values=grammar_range_values,
+            vocabulary_values=vocabulary_range_values,
+            input_article_value=input_article_value
+        )
+        app_logger.info("Rewriting article with input")
+    else:
+        user_prompt = ARTICLE_GENERATION.format(
+            grade_values=grade_values,
+            topic_values=topic_range_values,
+            grammar_values=grammar_range_values,
+            vocabulary_values=vocabulary_range_values
+        )
+        app_logger.info("Generating article without input")
 
-  
-    # Use ChatCompletion API to generate article
     generated_article = _call_llm_with_prompt(
         system_prompt=None, 
-        user_prompt=user_prompt, 
-        llm_client=llm_client, 
+        user_prompt=user_prompt,
         response_format=None
     )
     return generated_article
 
 
-def call_llm_to_generate_question(llm_client, question_type):
+def call_llm_to_generate_question(question_type):
 
     system_prompt, user_prompt = "You are a question generator for English exam in Taiwan.", \
         f"Please generate a question based on the question type: {question_type}"
@@ -145,7 +149,6 @@ def call_llm_to_generate_question(llm_client, question_type):
     generated_question = _call_llm_with_prompt(
         system_prompt=system_prompt,
         user_prompt=user_prompt,
-        llm_client=llm_client,
         response_format=QUESTION_FORMAT
     )
     return generated_question
