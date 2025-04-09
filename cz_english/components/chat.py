@@ -319,7 +319,7 @@ class Chat:
             if question_content and self._validate_question_format(question_content):
                 return question_content
             else:
-                logger.error(f"Invalid question format: {question_content}")
+                app_logger.error(f"Invalid question format: {question_content}")
                 return "Invalid question format. Please try again."
     # def handle_response_for_exceeding_token_quota(self, message, history, textbox_content):
     #     # Mock response data
