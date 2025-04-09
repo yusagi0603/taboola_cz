@@ -1,9 +1,8 @@
 import gradio as gr
-# from config import ASSISTANT_INSTRUCTION, RESPONSE_FORMAT
-import cz_english.option as option  # Import options directly in the EntryForm module
+import option  # Import options directly in the EntryForm module
 
 # from utils import call_llm_to_generate_article
-from cz_english.utils import call_llm_to_generate_article
+from utils import call_llm_to_generate_article
 
 class EntryForm:
     def __init__(self, llm_client, assistant_id):
@@ -89,13 +88,13 @@ class EntryForm:
         )
 
         # Combine parameters summary with the generated article
-        params_summary = _compose_params_summary(
-            grade_values, vocabulary_range_values, topic_range_values, grammar_range_values
-        )
-        content = params_summary + "\n## 生成的文章\n\n" + generated_article + "\n\n請編輯上述文章或使用聊天功能獲取更多幫助。"
+        # params_summary = _compose_params_summary(
+        #     grade_values, vocabulary_range_values, topic_range_values, grammar_range_values
+        # )
+        # content = params_summary + "\n## 生成的文章\n\n" + generated_article + "\n\n請編輯上述文章或使用聊天功能獲取更多幫助。"
 
         # Enable the chat interface
-        return content, gr.update(visible=True), gr.update(visible=False)
+        return generated_article, gr.update(visible=True), gr.update(visible=False)
 
     def render(self):
         with gr.Group() as selection_ui:
