@@ -4,12 +4,13 @@ import gradio as gr
 import json
 from json_repair import repair_json
 import re
-
+import logging
 from datetime import datetime
 from typing import List, Tuple
 
-from logger import app_logger
-from utils import  generate_docx_file
+from cz_english.logger import app_logger
+from cz_english.utils import generate_docx_file
+
 
 CONVERSATION_STARTER = "Click this button to make the passage longer"
 ARTICLE_REVISION_PATH = Path(__file__).parent.parent / "prompt" / "article_revision.jinja"
@@ -84,7 +85,8 @@ class Chat:
         self.textbox = gr.Textbox(  # Canvas
             label="文章編輯",
             lines=20,
-            render=False
+            render=False,
+            elem_classes=["fullscreen-editor"],
         )
 
         # TODO: Yu uses this to generate final exam questions
@@ -93,37 +95,43 @@ class Chat:
             label="word_comprehension",  
             lines=4,
             render=False,
-            interactive=True
+            interactive=True,
+            elem_classes=["fullscreen-editor"]
         )
         self.textbox_prob2 = gr.Textbox(  # grammatical_structure
             label="grammatical_structure",
             lines=4,
             render=False,
-            interactive=True
+            interactive=True,
+            elem_classes=["fullscreen-editor"]
         )
         self.textbox_prob3 = gr.Textbox(  # textual_inference
             label="textual_inference",
             lines=4,
             render=False,
-            interactive=True
+            interactive=True,
+            elem_classes=["fullscreen-editor"]
         )
         self.textbox_prob4 = gr.Textbox(  # chapter_summary
             label="chapter_summary",
             lines=4,
             render=False,
-            interactive=True
+            interactive=True,
+            elem_classes=["fullscreen-editor"]
         )
         self.textbox_prob5 = gr.Textbox(  # chapter_details
             label="chapter_details",
             lines=4,
             render=False,
-            interactive=True
+            interactive=True,
+            elem_classes=["fullscreen-editor"]
         )
         self.textbox_prob6 = gr.Textbox(  # chapter_structure
             label="chapter_structure",
             lines=4,
             render=False,
-            interactive=True
+            interactive=True,
+            elem_classes=["fullscreen-editor"]
         )
 
         # Replace buttons with dropdowns
@@ -172,7 +180,7 @@ class Chat:
         ]
         doc_file_name = generate_docx_file(
             doc_file_name,
-            question_info_tuple
+            insert_doc_info
         )
         
         return doc_file_name, gr.update(visible=True) 
@@ -310,6 +318,9 @@ class Chat:
             question_content = last_json.get('current_lesson_plan', '')
             if question_content and self._validate_question_format(question_content):
                 return question_content
+            else:
+                logger.error(f"Invalid question format: {question_content}")
+                return "Invalid question format. Please try again."
     # def handle_response_for_exceeding_token_quota(self, message, history, textbox_content):
     #     # Mock response data
     #     mock_response = {
@@ -479,6 +490,7 @@ class Chat:
         self.submit_button.click(
             fn=self._generate_final_exam_doc,
             inputs=[
+                self.textbox,
                 self.textbox_prob1,
                 self.textbox_prob2,
                 self.textbox_prob3,

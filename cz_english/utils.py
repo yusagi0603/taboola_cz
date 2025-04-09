@@ -99,6 +99,7 @@ def check_password(input_password):
     else:
         return gr.update(visible=True), gr.update(visible=False), gr.update(value="Wrong Password. Please Retry. hint: channel name", visible=True)
 
+
 def _call_llm_with_prompt(system_prompt, user_prompt, llm_client=llm_client, response_format=None):
     msg_lst = []
     for role, prompt in zip(["system", "user"], [system_prompt, user_prompt]):
@@ -135,6 +136,7 @@ def call_llm_to_generate_article(
     )
     return generated_article
 
+
 def call_llm_to_generate_question(llm_client, question_type):
 
     system_prompt, user_prompt = "You are a question generator for English exam in Taiwan.", \
@@ -147,6 +149,7 @@ def call_llm_to_generate_question(llm_client, question_type):
         response_format=QUESTION_FORMAT
     )
     return generated_question
+
 
 def create_google_doc(self, title, content):
     """Create a Google Doc with the given title and content."""
@@ -194,17 +197,18 @@ def create_google_doc(self, title, content):
     except Exception as e:
         app_logger.error(f"Error creating Google Doc: {str(e)}")
         return None
-    
-def generate_docx_file(doc_file_name, question_info_tuple):
+
+
+def generate_docx_file(doc_file_name, insert_doc_info):
     
     # # Create a Word document
     doc = Document()
     doc.add_heading(doc_file_name, 0)
     
     # # Add each question to the document
-    for question_type, question in question_info_tuple:
-        doc.add_heading(f"{question_type}", level=1)
-        doc.add_paragraph(question)
+    for content_type, content in insert_doc_info:
+        doc.add_heading(f"{content_type}", level=1)
+        doc.add_paragraph(content)
         doc.add_paragraph("")  # Add some spacing
 
     doc.save(doc_file_name)
