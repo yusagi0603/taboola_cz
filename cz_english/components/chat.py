@@ -73,7 +73,8 @@ class Chat:
         self.textbox = gr.Textbox(  # Canvas
             label="文章編輯",
             lines=20,
-            render=False
+            render=False,
+            elem_classes=["fullscreen-editor"],
         )
 
         # TODO: Yu uses this to generate final exam questions
@@ -82,19 +83,22 @@ class Chat:
             label="Cloze",  
             lines=4,
             render=False,
-            interactive=True
+            interactive=True,
+            elem_classes=["fullscreen-editor"]
         )
         self.textbox_prob2 = gr.Textbox(  # Canvas
             label="Comprehension",
             lines=4,
             render=False,
-            interactive=True
+            interactive=True,
+            elem_classes=["fullscreen-editor"]
         )
         self.textbox_prob3 = gr.Textbox(  # Canvas
             label="Summary",
             lines=4,
             render=False,
-            interactive=True
+            interactive=True,
+            elem_classes=["fullscreen-editor"]
         )
 
         # TODO: Audrey uses this to add problems
