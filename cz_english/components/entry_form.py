@@ -1,8 +1,9 @@
 import gradio as gr
-from config import ASSISTANT_INSTRUCTION, RESPONSE_FORMAT
-import option  # Import options directly in the EntryForm module
+# from config import ASSISTANT_INSTRUCTION, RESPONSE_FORMAT
+import cz_english.option as option  # Import options directly in the EntryForm module
 
-from utils import call_llm_to_generate_article
+# from utils import call_llm_to_generate_article
+from cz_english.utils import call_llm_to_generate_article
 
 class EntryForm:
     def __init__(self, llm_client, assistant_id):

@@ -8,8 +8,9 @@ import re
 from datetime import datetime
 from typing import List, Tuple
 
-from logger import app_logger
-from utils import  generate_docx_file
+from cz_english.logger import app_logger
+from cz_english.utils import generate_docx_file
+
 
 CONVERSATION_STARTER = "Click this button to make the passage longer"
 ARTICLE_REVISION_PATH = Path(__file__).parent.parent / "prompt" / "article_revision.jinja"
@@ -103,7 +104,8 @@ class Chat:
         self.submit_button = gr.Button("產生考題", elem_id="submit_button",render=False)
        
     def _generate_final_exam_doc(
-            self, 
+            self,
+            article_content,
             question_1, question_2, question_3
         ):
         """Compose the final exam from the three problem textboxes."""
@@ -129,14 +131,15 @@ class Chat:
         #     return "生成考卷時發生錯誤，請稍後再試。"
 
         # Return the exam content as a downloadable document
-        question_info_tuple = [
+        insert_doc_info = [
+            ("文章", article_content),
             ("題型1", question_1),
             ("題型2", question_2),
             ("題型3", question_3)
         ]
         doc_file_name = generate_docx_file(
             doc_file_name,
-            question_info_tuple
+            insert_doc_info
         )
         
         return doc_file_name, gr.update(visible=True) 
@@ -364,6 +367,7 @@ class Chat:
         self.submit_button.click(
             fn=self._generate_final_exam_doc,
             inputs=[
+                self.textbox,
                 self.textbox_prob1,
                 self.textbox_prob2,
                 self.textbox_prob3

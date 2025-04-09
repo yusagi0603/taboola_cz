@@ -1,3 +1,8 @@
+import sys
+from pathlib import Path
+
+# Add the parent directory of cz_english to the Python path
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 import gradio as gr
 from components.chat import Chat
@@ -7,7 +12,6 @@ from components.password import Password
 from config import (
     ASSISTANT_ID
 )
-from logger import app_logger
 from client import llm_client
 
 # View existing assistants
