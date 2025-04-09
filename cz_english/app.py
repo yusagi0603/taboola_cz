@@ -20,13 +20,17 @@ existed_assistants = llm_client.beta.assistants.list(
     limit="20",
 )
 
+# Load custom CSS
+css_path = Path(__file__).parent / "styles" / "styles.css"
+with open(css_path, "r") as f:
+    custom_css = f.read()
 
 # Initialize components
 chat = Chat(llm_client, ASSISTANT_ID)
 entry_form = EntryForm(llm_client, ASSISTANT_ID)
 password = Password()
 
-with gr.Blocks() as demo:
+with gr.Blocks(css=custom_css) as demo:
     # Render password UI
     password_popup, password_input, submit_button, error_message = password.render()
     

@@ -73,7 +73,8 @@ class Chat:
         self.textbox = gr.Textbox(  # Canvas
             label="文章編輯",
             lines=20,
-            render=False
+            render=False,
+            elem_classes=["fullscreen-editor"],
         )
 
         # TODO: Yu uses this to generate final exam questions

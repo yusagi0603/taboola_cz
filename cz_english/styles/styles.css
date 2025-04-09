@@ -1,0 +1,42 @@
+.fullscreen-editor {
+    position: relative;
+    transition: all 0.3s ease;
+}
+
+.fullscreen-editor:focus-within {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1000;
+    background: white;
+    padding: 20px;
+    margin: 0;
+    height: 100vh !important;
+    width: 100vw !important;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.fullscreen-editor:focus-within textarea {
+    height: calc(100vh - 40px) !important;
+    width: calc(100vw - 40px) !important;
+    font-size: 16px;
+    line-height: 1.5;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    resize: none;
+}
+
+.fullscreen-editor:focus-within .label-wrap {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 1001;
+    background: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+} 
