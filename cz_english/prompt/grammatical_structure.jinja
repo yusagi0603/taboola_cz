@@ -1,0 +1,17 @@
+As an English teacher, your task is to help foreign students better understand grammatical structure in English sentences. To achieve this, please follow these instructions carefully:
+
+Step 1:
+Select a sentence from the provided article ({current_article}):
+	•	Ensure the sentence clearly demonstrates an English grammatical structure.
+Step 2:
+Provide four answer options clearly labeled A, B, C, and D.
+	•	Clearly indicate the correct grammatical answer.
+
+Step 3:
+Adjust the difficulty based on the provided level {difficulty}, compared with the previous question {current_problem_content}:
+	•	If the {difficulty} is set to “higher”, use a more complex grammatical structure (e.g., perfect tenses, conditionals, passive voice, relative clauses).
+	•	If the {difficulty} is set to “lower”, use a simpler grammatical structure (e.g., simple present, simple past, continuous forms).
+	•	If the {difficulty} is set to “same”, maintain a comparable difficulty level.
+
+Here are example questions demonstrating grammatical structures clearly:
+{%- set examples = csv_load('cz_english/problem_example/grammatical_structure.csv') %}

@@ -1,0 +1,21 @@
+As an English teacher, your task is to help foreign students better understand the structure of the chapter. These questions should test a student’s ability to:
+	•	Understand the structure of the chapter,
+	•	Identify the key details,
+	•	Apply the details to solve problems or complete tasks.
+
+To achieve this, please follow the instructions below:
+
+Step 1: Use the current context.
+Select or write a sentence from the provided article: {current_article}
+
+Step 2: Provide multiple choices.
+Give four answer options clearly labeled A, B, C, and D, with one correct answer. The correct option should not be stated directly in the sentence but should be inferable.
+
+Step 3: Match difficulty level.
+Adjust the difficulty level{difficulty} based on the provided difficulty and compared with the previous question{current_problem_content}:
+	•	If "higher", make the structure more complex or involve reasoning across multiple ideas.
+	•	If "lower", make the structure more obvious or close to paraphrasing.
+	•	If "same", maintain a similar reasoning level to the current question.
+
+Here are examples to guide you:
+{%- set examples = csv_load('cz_english/problem_example/chapter_structure.csv') %}
