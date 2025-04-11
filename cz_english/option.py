@@ -3,7 +3,7 @@ GRADE_OPTIONS = [
     "國中二年級",
     "國中三年級"
 ]
-VOCABULARY_OPTIONS = [
+UNIT_OPTIONS = [
     "第一課",
     "第二課",
     "第三課",
