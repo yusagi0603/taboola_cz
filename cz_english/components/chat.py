@@ -161,6 +161,7 @@ class Chat:
         
     def _generate_final_exam_doc(
             self, 
+            article_content,
             question_1, question_2, question_3, question_4, question_5, question_6
         ):
         """Compose the final exam from the three problem textboxes."""
@@ -171,6 +172,7 @@ class Chat:
         
         # Return the exam content as a downloadable document
         question_info_tuple = [
+            ("文章", article_content),
             ("題型1 - Word Comprehension", question_1),
             ("題型2 - Grammatical Structure", question_2),
             ("題型3 - Textual Inference", question_3),
@@ -180,7 +182,7 @@ class Chat:
         ]
         doc_file_name = generate_docx_file(
             doc_file_name,
-            insert_doc_info
+            question_info_tuple
         )
         
         return doc_file_name, gr.update(visible=True) 
@@ -316,11 +318,11 @@ class Chat:
         if json_objects:
             last_json = json_objects[-1]
             question_content = last_json.get('current_lesson_plan', '')
-            if question_content and self._validate_question_format(question_content):
-                return question_content
-            else:
-                app_logger.error(f"Invalid question format: {question_content}")
-                return "Invalid question format. Please try again."
+            # if question_content and self._validate_question_format(question_content):
+            return question_content
+            # else:
+                # app_logger.error(f"Invalid question format: {question_content}")
+                # return "Invalid question format. Please try again."
     # def handle_response_for_exceeding_token_quota(self, message, history, textbox_content):
     #     # Mock response data
     #     mock_response = {
