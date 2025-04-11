@@ -120,7 +120,7 @@ def call_llm_to_generate_article(
             grade_values=grade_values,
             topic_values=topic_values,
             grammar_values=grammar_values,
-            vocabulary_values=unit_values,
+            unit_values=unit_values,
             input_article_value=input_article_value
         )
         app_logger.info("Rewriting article with input")
@@ -129,7 +129,7 @@ def call_llm_to_generate_article(
             grade_values=grade_values,
             topic_values=topic_values,
             grammar_values=grammar_values,
-            vocabulary_values=unit_values
+            unit_values=unit_values
         )
         app_logger.info("Generating article without input")
 
