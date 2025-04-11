@@ -112,7 +112,7 @@ def _call_llm_with_prompt(system_prompt, user_prompt, response_format=None):
 
 
 def call_llm_to_generate_article(
-        grade_values, vocab_values, topic_values, grammar_values, input_article_value
+        grade_values, unit_values, topic_values, grammar_values, input_article_value
     ):
 
     if input_article_value:
@@ -120,7 +120,7 @@ def call_llm_to_generate_article(
             grade_values=grade_values,
             topic_values=topic_values,
             grammar_values=grammar_values,
-            vocabulary_values=vocab_values,
+            vocabulary_values=unit_values,
             input_article_value=input_article_value
         )
         app_logger.info("Rewriting article with input")
@@ -129,7 +129,7 @@ def call_llm_to_generate_article(
             grade_values=grade_values,
             topic_values=topic_values,
             grammar_values=grammar_values,
-            vocabulary_values=vocab_values
+            vocabulary_values=unit_values
         )
         app_logger.info("Generating article without input")
 

@@ -46,7 +46,7 @@ with gr.Blocks(css=custom_css) as demo:
         show_progress=False,
     ).then(
         fn=entry_form.generate_initial_content,
-        inputs=[entry_form.grade, entry_form.vocab, entry_form.topic, entry_form.grammar, entry_form.input_article],
+        inputs=[entry_form.grade, entry_form.unit, entry_form.topic, entry_form.grammar, entry_form.input_article],
         outputs=[chat.textbox, chat_ui, entry_form_ui],
     ).then(
         fn=lambda: gr.update(visible=False),  # Hide loading spinner when done

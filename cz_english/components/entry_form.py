@@ -10,7 +10,7 @@ class EntryForm:
         self.assistant_id = assistant_id
         # Use options directly from the option module
         self.grade_options = option.GRADE_OPTIONS
-        self.vocabulary_options = option.VOCABULARY_OPTIONS
+        self.unit_options = option.UNIT_OPTIONS
         self.grammar_options = option.GRAMMAR_OPTIONS
         self.topic_options = option.TOPIC_OPTIONS
         self._define_components()
@@ -22,8 +22,8 @@ class EntryForm:
             label="學生年級",
         )
         
-        self.vocab = gr.CheckboxGroup(
-            choices=self.vocabulary_options,
+        self.unit = gr.CheckboxGroup(
+            choices=self.unit_options,
             label="課程範圍",
         )
 
@@ -51,12 +51,12 @@ class EntryForm:
             visible=False
         )
 
-    def generate_initial_content(self, grade_values, vocab_values, topic_values, grammar_values, input_article_value):
+    def generate_initial_content(self, grade_values, unit_values, topic_values, grammar_values, input_article_value):
         generated_article = call_llm_to_generate_article(
             grade_values=grade_values,
             topic_values=topic_values,
             grammar_values=grammar_values,
-            vocab_values=vocab_values,
+            unit_values=unit_values,
             input_article_value=input_article_value
         )
 
@@ -69,7 +69,7 @@ class EntryForm:
             
             # Render components
             self.grade.render()
-            self.vocab.render()
+            self.unit.render()
             self.grammar.render()
             self.topic.render()
             self.input_article.render()
