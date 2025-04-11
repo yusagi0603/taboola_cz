@@ -22,17 +22,17 @@ class EntryForm:
             label="學生年級",
         )
         
-        self.vocabulary_range = gr.CheckboxGroup(
+        self.vocab = gr.CheckboxGroup(
             choices=self.vocabulary_options,
-            label="單字範圍",
+            label="課程範圍",
         )
 
-        self.grammar_range = gr.CheckboxGroup(
+        self.grammar = gr.CheckboxGroup(
             choices=self.grammar_options,
             label="文法範圍",
         )
         
-        self.topic_range = gr.CheckboxGroup(
+        self.topic = gr.CheckboxGroup(
             choices=self.topic_options,
             label="主題範圍",
         )
@@ -51,13 +51,12 @@ class EntryForm:
             visible=False
         )
 
-    def generate_initial_content(self, grade_values, vocabulary_range_values, topic_range_values, grammar_range_values, input_article_value):
-
+    def generate_initial_content(self, grade_values, vocab_values, topic_values, grammar_values, input_article_value):
         generated_article = call_llm_to_generate_article(
             grade_values=grade_values,
-            topic_range_values=topic_range_values,
-            grammar_range_values=grammar_range_values,
-            vocabulary_range_values=vocabulary_range_values,
+            topic_values=topic_values,
+            grammar_values=grammar_values,
+            vocab_values=vocab_values,
             input_article_value=input_article_value
         )
 
@@ -70,9 +69,9 @@ class EntryForm:
             
             # Render components
             self.grade.render()
-            self.vocabulary_range.render()
-            self.grammar_range.render()
-            self.topic_range.render()
+            self.vocab.render()
+            self.grammar.render()
+            self.topic.render()
             self.input_article.render()
             self.generate_button.render()
             self.spinner.render()
