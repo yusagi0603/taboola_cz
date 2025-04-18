@@ -49,7 +49,15 @@ with open(chapter_details_generation_path, 'r', encoding='utf-8') as f:
 with open(chapter_structure_generation_path, 'r', encoding='utf-8') as f:
     chapter_structure_prompt = f.read()
 
-
+# Mapping of problem types to their corresponding prompts
+PROBLEM_TYPE_TO_PROMPT = {
+    "word_comprehension": word_comprehension_prompt,
+    "grammatical_structure": grammatical_structure_prompt,
+    "textual_inference": textual_inference_prompt,
+    "chapter_summary": chapter_summary_prompt,
+    "chapter_details": chapter_details_prompt,
+    "chapter_structure": chapter_structure_prompt
+}
 
 class Chat:
     def __init__(self, client, assistant_id):
@@ -260,19 +268,7 @@ class Chat:
         return problems
 
     def generate_problem(self, problem_type, current_article, difficulty="Medium", current_problem_content=""):
-        
-        if problem_type == "word_comprehension":
-            prompt = word_comprehension_prompt
-        elif problem_type == "grammatical_structure":
-            prompt = grammatical_structure_prompt
-        elif problem_type == "textual_inference":
-            prompt = textual_inference_prompt
-        elif problem_type == "chapter_summary":
-            prompt = chapter_summary_prompt
-        elif problem_type == "chapter_details":
-            prompt = chapter_details_prompt
-        elif problem_type == "chapter_structure":
-            prompt = chapter_structure_prompt
+        prompt = PROBLEM_TYPE_TO_PROMPT[problem_type]
 
         current_problem_context = ""
         if current_problem_content.strip():
@@ -284,9 +280,13 @@ class Chat:
         integrated_prompt = QUESTION_FORMAT_PROMPT.format(
             generated_article=current_article,
             prompt=prompt,
-            difficulty=difficulty,
-            current_problem_context=current_problem_context
+            difficulty=difficulty
         )
+        
+        if current_problem_context:
+            integrated_prompt = integrated_prompt.format(
+                current_problem_context=current_problem_context
+            )
 
         thread = self.client.beta.threads.create()
         self.client.beta.threads.messages.create(
@@ -429,6 +429,12 @@ class Chat:
                     with gr.Row():
                         self.question_type_dropdown.render()
                         self.difficulty_dropdown.render()
+                    
+                    self.prompt_display = gr.Textbox(
+                        label="Generated Prompt",
+                        lines=10,
+                        elem_classes=["fullscreen-editor"],
+                    )
                     
                     self.generate_question_button.render()
                     
