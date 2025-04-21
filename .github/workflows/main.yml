@@ -16,4 +16,4 @@ jobs:
       - name: Push to hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: git push git@hf.co:spaces/taboola-cz/CZ-English release/1.x:main
+        run: git push https://yuuu0603:$HF_TOKEN@huggingface.co/spaces/taboola-cz/CZ-English release/1.x:main
