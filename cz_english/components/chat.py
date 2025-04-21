@@ -96,6 +96,8 @@ class Chat:
             elem_classes=["fullscreen-editor"],
         )
 
+        self.problem_list = gr.State([])
+
         # Store problem textboxes in a list
         self.problem_textboxes = [
             gr.Textbox(  # word_comprehension
@@ -142,6 +144,7 @@ class Chat:
             )
         ]
 
+
         # Problem type to index mapping
         self.problem_type_to_index = {
             "word_comprehension": 0,
@@ -177,6 +180,12 @@ class Chat:
         self.button3 = gr.Button("textual_inference", elem_id="button3", visible=False, render=False)
         
         self.submit_button = gr.Button("產生考題", elem_id="submit_button", render=False)
+
+        # Add spinner component
+        self.spinner = gr.HTML(
+            '<div style="display:flex;justify-content:center;margin:10px;"><img src="https://cdnjs.cloudflare.com/ajax/libs/galleriffic/2.0.1/css/loader.gif" width="50"></div>',
+            visible=False
+        )
 
     def _generate_final_exam_doc(
             self, 
@@ -272,11 +281,6 @@ class Chat:
         if len(next_step_prompt) > 0 and len(next_step_prompt[0]) > 0:
             return gr.Dataset(samples=next_step_prompt, visible=True)
         return gr.Dataset(samples=[['-']], visible=False)
-
-    def add_problem(self, problem_type, problems):
-        problem_name = problem_type + str(time.time())
-        problems[problem_name] = problem_type
-        return problems
 
     def generate_problem(self, problem_type, current_article, difficulty="Medium", current_problem_content=""):
         prompt = PROBLEM_TYPE_TO_PROMPT[problem_type]
@@ -387,9 +391,14 @@ class Chat:
         return self.problem_type_to_index[problem_type]
 
 
+    def create_problem(self, problem_type, difficulty, current_article, problems):
+        print(f"Create problem: {problem_type}, {difficulty}")
+        problem_text = self.generate_problem(problem_type, current_article, difficulty)
+        problems.append((problem_type, problem_text))
+        return problems
+
     def render(self):
         with gr.Group(visible=False) as chat_ui:
-
             with gr.Row(equal_height=True):
                 # Left Column
                 with gr.Column():
@@ -413,14 +422,26 @@ class Chat:
                     )
                     
                     self.generate_question_button.render()
+                    self.spinner.render()
                     
                 # Right column
                 with gr.Column():
                     self.textbox.render()
                     
-                    # Render all textboxes from the list
-                    for textbox in self.problem_textboxes:
-                        textbox.render()
+                    self.problem_list.render()
+
+                    @gr.render(inputs=[self.problem_list])
+                    def render_problem_textboxes(problems):
+                        """Render all problem textboxes"""
+                        for i, textbox in enumerate(problems):
+                            problem_type, problem_text = textbox
+                            textbox = gr.Textbox(
+                                label=problem_type,
+                                value=problem_text,
+                                lines=4,
+                                interactive=True,
+                                elem_classes=["fullscreen-editor"]
+                            )
 
             # Move ChatInterface outside of the columns to avoid duplicate rendering
             gr.ChatInterface(
@@ -445,17 +466,33 @@ class Chat:
             outputs=[self.selected_problem_index]
         )
 
-        self.generate_question_button.click(
-            fn=self.handle_generate_question,
-            inputs=[
-                self.question_type_dropdown,
-                self.difficulty_dropdown,
-                self.problem_textboxes[self.selected_problem_index.value],
-                self.textbox
-            ],
-            outputs=self.problem_textboxes[self.selected_problem_index.value]
-        )
+        # self.generate_question_button.click(
+        #     fn=self.handle_generate_question,
+        #     inputs=[
+        #         self.question_type_dropdown,
+        #         self.difficulty_dropdown,
+        #         self.problem_textboxes[self.selected_problem_index.value],
+        #         self.textbox,
+        #         self.textbox
+        #     ],
+        #     outputs=self.problem_textboxes[self.selected_problem_index.value]
+        # )
         
+        self.generate_question_button.click(
+            fn=lambda: gr.update(visible=True),  # Show spinner
+            outputs=self.spinner,
+            show_progress=False,
+        ).then(
+            fn=self.create_problem,
+            inputs=[self.question_type_dropdown, self.difficulty_dropdown, self.textbox, self.problem_list],
+            outputs=self.problem_list,
+        ).then(
+            fn=lambda: gr.update(visible=False),  # Hide spinner
+            outputs=self.spinner,
+            show_progress=False,
+        )
+
+
         # Keep the old button handlers for reference but they won't be used
         # self.button1.click(self.append_problem, inputs=[self.button1, self.textbox_prob1, self.textbox], outputs=[self.textbox_prob1])
         # self.button2.click(self.append_problem, inputs=[self.button2, self.textbox_prob2, self.textbox], outputs=[self.textbox_prob2])
