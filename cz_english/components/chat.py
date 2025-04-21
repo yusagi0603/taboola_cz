@@ -291,14 +291,10 @@ class Chat:
         integrated_prompt = QUESTION_FORMAT_PROMPT.format(
             generated_article=current_article,
             prompt=prompt,
-            difficulty=difficulty
+            difficulty=difficulty,
+            current_problem_context=current_problem_context
         )
         
-        if current_problem_context:
-            integrated_prompt = integrated_prompt.format(
-                current_problem_context=current_problem_context
-            )
-
         thread = self.client.beta.threads.create()
         self.client.beta.threads.messages.create(
             thread_id=thread.id,
