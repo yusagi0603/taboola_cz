@@ -155,7 +155,6 @@ class Chat:
             "chapter_structure": 5
         }
 
-        self.selected_problem_index = gr.State(value=0)
 
         # Replace buttons with dropdowns
         self.difficulty_dropdown = gr.Dropdown(
@@ -282,28 +281,28 @@ class Chat:
             return gr.Dataset(samples=next_step_prompt, visible=True)
         return gr.Dataset(samples=[['-']], visible=False)
 
-    def generate_problem(self, problem_type, current_article, difficulty="Medium", current_problem_content=""):
+    def prepare_prompt_template(self, problem_type, difficulty="Medium"):
+        """Prepare the prompt template without article content"""
         prompt = PROBLEM_TYPE_TO_PROMPT[problem_type]
-
-        current_problem_context = ""
-        if current_problem_content.strip():
-            problems = current_problem_content.split("\n---\n")
-            last_problem = problems[-1].strip()
-            if last_problem:
-                current_problem_context = f"Here is the last problem generated of this type:\n{last_problem}\n\nPlease generate a new, different problem."
-
+        
         integrated_prompt = QUESTION_FORMAT_PROMPT.format(
-            generated_article=current_article,
             prompt=prompt,
             difficulty=difficulty,
-            current_problem_context=current_problem_context
+            generated_article="{generated_article}"
         )
         
+        return integrated_prompt
+
+    def generate_problem(self, prompt):
+        """Generate a problem using the prepared prompt"""
+
+        print(f"Generate problem with prompt: {prompt[:100]}...")
+
         thread = self.client.beta.threads.create()
         self.client.beta.threads.messages.create(
             thread_id=thread.id,
             role="user",
-            content=integrated_prompt,
+            content=prompt,
         )
         
         full_response = "" 
@@ -386,14 +385,13 @@ class Chat:
         else:
             return new_problem or selected_textbox or ""
 
-    def update_selected_problem_index(self, problem_type, current_problem_index):
-        print(self.problem_type_to_index[problem_type])
-        return self.problem_type_to_index[problem_type]
 
 
-    def create_problem(self, problem_type, difficulty, current_article, problems):
+    def create_problem(self, problem_type, difficulty, prompt_preview, current_article, problems):
+        """Create a new problem and add it to the list"""
         print(f"Create problem: {problem_type}, {difficulty}")
-        problem_text = self.generate_problem(problem_type, current_article, difficulty)
+        prompt = prompt_preview.format(generated_article=current_article)
+        problem_text = self.generate_problem(prompt)
         problems.append((problem_type, problem_text))
         return problems
 
@@ -413,12 +411,12 @@ class Chat:
                         self.question_type_dropdown.render()
                         self.difficulty_dropdown.render()
                     
-                    self.selected_problem_index.render()
                     
-                    self.prompt_display = gr.Textbox(
-                        label="Generated Prompt",
+                    self.prompt_preview = gr.Textbox(
+                        label="Prompt Preview",
                         lines=10,
                         elem_classes=["fullscreen-editor"],
+                        value=self.prepare_prompt_template(self.question_type_dropdown.value, self.difficulty_dropdown.value)
                     )
                     
                     self.generate_question_button.render()
@@ -460,11 +458,6 @@ class Chat:
                 download_button = gr.DownloadButton("Download Word Document", visible=False)
 
 
-        self.question_type_dropdown.change(
-            fn=self.update_selected_problem_index,
-            inputs=[self.question_type_dropdown, self.selected_problem_index],
-            outputs=[self.selected_problem_index]
-        )
 
         # self.generate_question_button.click(
         #     fn=self.handle_generate_question,
@@ -484,7 +477,7 @@ class Chat:
             show_progress=False,
         ).then(
             fn=self.create_problem,
-            inputs=[self.question_type_dropdown, self.difficulty_dropdown, self.textbox, self.problem_list],
+            inputs=[self.question_type_dropdown, self.difficulty_dropdown, self.prompt_preview, self.textbox, self.problem_list],
             outputs=self.problem_list,
         ).then(
             fn=lambda: gr.update(visible=False),  # Hide spinner
@@ -492,7 +485,20 @@ class Chat:
             show_progress=False,
         )
 
+        # Add event handlers for prompt preview updates
+        self.question_type_dropdown.change(
+            fn=self.update_prompt_preview,
+            inputs=[self.question_type_dropdown, self.difficulty_dropdown],
+            outputs=[self.prompt_preview]
+        )
 
+        self.difficulty_dropdown.change(
+            fn=self.update_prompt_preview,
+            inputs=[self.question_type_dropdown, self.difficulty_dropdown],
+            outputs=[self.prompt_preview]
+        )
+
+   
         # Keep the old button handlers for reference but they won't be used
         # self.button1.click(self.append_problem, inputs=[self.button1, self.textbox_prob1, self.textbox], outputs=[self.textbox_prob1])
         # self.button2.click(self.append_problem, inputs=[self.button2, self.textbox_prob2, self.textbox], outputs=[self.textbox_prob2])
@@ -505,3 +511,8 @@ class Chat:
         )
 
         return chat_ui  # Return the group for access in the main app 
+
+    def update_prompt_preview(self, question_type, difficulty):
+        """Update the prompt preview based on current inputs"""
+        prompt = self.prepare_prompt_template(question_type, difficulty)
+        return prompt
