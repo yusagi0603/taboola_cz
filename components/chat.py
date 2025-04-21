@@ -386,7 +386,9 @@ class Chat:
 
 
     def create_problem(self, problem_type, difficulty, prompt_preview, current_article, problems):
-        """Create a new problem and add it to the list"""
+        """Create a new problem and add it to the list
+        TODO: Add timeout here
+        """
         print(f"Create problem: {problem_type}, {difficulty}")
         prompt = prompt_preview.format(generated_article=current_article)
         problem_text = self.generate_problem(prompt)
