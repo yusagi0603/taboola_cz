@@ -4,12 +4,10 @@ import gradio as gr
 import json
 from json_repair import repair_json
 import re
-import logging
 from datetime import datetime
-from typing import List, Tuple
 
-from cz_english.logger import app_logger
-from cz_english.utils import generate_docx_file
+from logger import app_logger
+from utils import generate_docx_file
 
 
 CONVERSATION_STARTER = "Click this button to make the passage longer"
