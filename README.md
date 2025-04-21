@@ -1,6 +1,6 @@
 ---
-title: Cz Base SEL COACH
-emoji: 📈
+title: CZ English
+emoji: 🧑‍🏫
 colorFrom: blue
 colorTo: yellow
 sdk: gradio
