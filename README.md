@@ -1,4 +1,4 @@
-
+This repo sync with hugging face space https://huggingface.co/spaces/taboola-cz/CZ-English
 
 
 ```
