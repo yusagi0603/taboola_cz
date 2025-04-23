@@ -20,6 +20,7 @@ textual_inference_generation_path = Path(__file__).parent.parent / "prompt" / "t
 chapter_summary_generation_path = Path(__file__).parent.parent / "prompt" / "chapter_summary.jinja"
 chapter_details_generation_path = Path(__file__).parent.parent / "prompt" / "chapter_details.jinja"
 chapter_structure_generation_path = Path(__file__).parent.parent / "prompt" / "chapter_structure.jinja"
+
 with open(ARTICLE_REVISION_PATH, 'r', encoding='utf-8') as f:
     ARTICLE_REVISION_PROMPT = f.read()
 
@@ -47,7 +48,15 @@ with open(chapter_details_generation_path, 'r', encoding='utf-8') as f:
 with open(chapter_structure_generation_path, 'r', encoding='utf-8') as f:
     chapter_structure_prompt = f.read()
 
-
+# Mapping of problem types to their corresponding prompts
+PROBLEM_TYPE_TO_PROMPT = {
+    "word_comprehension": word_comprehension_prompt,
+    "grammatical_structure": grammatical_structure_prompt,
+    "textual_inference": textual_inference_prompt,
+    "chapter_summary": chapter_summary_prompt,
+    "chapter_details": chapter_details_prompt,
+    "chapter_structure": chapter_structure_prompt
+}
 
 class Chat:
     def __init__(self, client, assistant_id):
@@ -61,7 +70,6 @@ class Chat:
         
         # Initialize components
         self.chatbot = gr.Chatbot(type="messages")
-
 
         self.prompt_input = gr.Textbox(  # User prompt
             submit_btn=True,
@@ -87,50 +95,17 @@ class Chat:
             elem_classes=["fullscreen-editor"],
         )
 
-        # TODO: Yu uses this to generate final exam questions
-        # TOOD: Audrey uses this to populate the problems
-        self.textbox_prob1 = gr.Textbox(  # word_comprehension
-            label="word_comprehension",  
-            lines=4,
-            render=False,
-            interactive=True,
-            elem_classes=["fullscreen-editor"]
-        )
-        self.textbox_prob2 = gr.Textbox(  # grammatical_structure
-            label="grammatical_structure",
-            lines=4,
-            render=False,
-            interactive=True,
-            elem_classes=["fullscreen-editor"]
-        )
-        self.textbox_prob3 = gr.Textbox(  # textual_inference
-            label="textual_inference",
-            lines=4,
-            render=False,
-            interactive=True,
-            elem_classes=["fullscreen-editor"]
-        )
-        self.textbox_prob4 = gr.Textbox(  # chapter_summary
-            label="chapter_summary",
-            lines=4,
-            render=False,
-            interactive=True,
-            elem_classes=["fullscreen-editor"]
-        )
-        self.textbox_prob5 = gr.Textbox(  # chapter_details
-            label="chapter_details",
-            lines=4,
-            render=False,
-            interactive=True,
-            elem_classes=["fullscreen-editor"]
-        )
-        self.textbox_prob6 = gr.Textbox(  # chapter_structure
-            label="chapter_structure",
-            lines=4,
-            render=False,
-            interactive=True,
-            elem_classes=["fullscreen-editor"]
-        )
+        self.problem_list = gr.State([])
+
+        # Problem type to index mapping
+        self.problem_type_to_index = {
+            "word_comprehension": 0,
+            "grammatical_structure": 1,
+            "textual_inference": 2,
+            "chapter_summary": 3,
+            "chapter_details": 4,
+            "chapter_structure": 5
+        }
 
         # Replace buttons with dropdowns
         self.difficulty_dropdown = gr.Dropdown(
@@ -141,8 +116,7 @@ class Chat:
         )
         
         self.question_type_dropdown = gr.Dropdown(
-            choices=["word_comprehension", "grammatical_structure", "textual_inference", 
-                     "chapter_summary", "chapter_details", "chapter_structure"],
+            choices=list(self.problem_type_to_index.keys()),
             value="word_comprehension",
             label="Question Type",
             render=False
@@ -156,11 +130,17 @@ class Chat:
         self.button3 = gr.Button("textual_inference", elem_id="button3", visible=False, render=False)
         
         self.submit_button = gr.Button("產生考題", elem_id="submit_button", render=False)
-        
+
+        # Add spinner component
+        self.spinner = gr.HTML(
+            '<div style="display:flex;justify-content:center;margin:10px;"><img src="https://cdnjs.cloudflare.com/ajax/libs/galleriffic/2.0.1/css/loader.gif" width="50"></div>',
+            visible=False
+        )
+
     def _generate_final_exam_doc(
             self, 
             article_content,
-            question_1, question_2, question_3, question_4, question_5, question_6
+            problem_list
         ):
         """Compose the final exam from the three problem textboxes."""
         
@@ -169,15 +149,9 @@ class Chat:
         doc_file_name = f"英文考題 - {timestamp}"
         
         # Return the exam content as a downloadable document
-        question_info_tuple = [
-            ("文章", article_content),
-            ("題型1 - Word Comprehension", question_1),
-            ("題型2 - Grammatical Structure", question_2),
-            ("題型3 - Textual Inference", question_3),
-            ("題型4 - Chapter Summary", question_4),
-            ("題型5 - Chapter Details", question_5),
-            ("題型6 - Chapter Structure", question_6)
-        ]
+        question_info_tuple = [("文章", article_content)]
+        for problem_type, problem_content in problem_list:
+            question_info_tuple.append((problem_type, problem_content))
         doc_file_name = generate_docx_file(
             doc_file_name,
             question_info_tuple
@@ -252,45 +226,28 @@ class Chat:
             return gr.Dataset(samples=next_step_prompt, visible=True)
         return gr.Dataset(samples=[['-']], visible=False)
 
-    def add_problem(self, problem_type, problems):
-        problem_name = problem_type + str(time.time())
-        problems[problem_name] = problem_type
-        return problems
-
-    def generate_problem(self, problem_type, current_article, difficulty="Medium", current_problem_content=""):
+    def prepare_prompt_template(self, problem_type, difficulty="Medium"):
+        """Prepare the prompt template without article content"""
+        prompt = PROBLEM_TYPE_TO_PROMPT[problem_type]
         
-        if problem_type == "word_comprehension":
-            prompt = word_comprehension_prompt
-        elif problem_type == "grammatical_structure":
-            prompt = grammatical_structure_prompt
-        elif problem_type == "textual_inference":
-            prompt = textual_inference_prompt
-        elif problem_type == "chapter_summary":
-            prompt = chapter_summary_prompt
-        elif problem_type == "chapter_details":
-            prompt = chapter_details_prompt
-        elif problem_type == "chapter_structure":
-            prompt = chapter_structure_prompt
-
-        current_problem_context = ""
-        if current_problem_content.strip():
-            problems = current_problem_content.split("\n---\n")
-            last_problem = problems[-1].strip()
-            if last_problem:
-                current_problem_context = f"Here is the last problem generated of this type:\n{last_problem}\n\nPlease generate a new, different problem."
-
         integrated_prompt = QUESTION_FORMAT_PROMPT.format(
-            generated_article=current_article,
             prompt=prompt,
             difficulty=difficulty,
-            current_problem_context=current_problem_context
+            generated_article="{generated_article}"
         )
+        
+        return integrated_prompt
+
+    def generate_problem(self, prompt):
+        """Generate a problem using the prepared prompt"""
+
+        print(f"Generate problem with prompt: {prompt[:100]}...")
 
         thread = self.client.beta.threads.create()
         self.client.beta.threads.messages.create(
             thread_id=thread.id,
             role="user",
-            content=integrated_prompt,
+            content=prompt,
         )
         
         full_response = "" 
@@ -316,27 +273,7 @@ class Chat:
         if json_objects:
             last_json = json_objects[-1]
             question_content = last_json.get('current_lesson_plan', '')
-            # if question_content and self._validate_question_format(question_content):
             return question_content
-            # else:
-                # app_logger.error(f"Invalid question format: {question_content}")
-                # return "Invalid question format. Please try again."
-    # def handle_response_for_exceeding_token_quota(self, message, history, textbox_content):
-    #     # Mock response data
-    #     mock_response = {
-    #         'current_lesson_plan': f"Here is a mock lesson plan based on: {textbox_content}",
-    #         'suggestion': "This is a mock suggestion for your content.",
-    #         'next_step_prompt': [["Continue", "Revise", "Start Over"]]
-    #     }
-        
-    #     # Simulate streaming by yielding partial responses
-    #     yield "Loading suggestion...", "", [[]]
-    #     yield mock_response['suggestion'], "", [[]]
-    #     yield mock_response['suggestion'], mock_response['current_lesson_plan'], [[]]
-    #     yield mock_response['suggestion'], mock_response['current_lesson_plan'], mock_response['next_step_prompt']
-    
-
-
     
     def _validate_question_format(self, text):
         required_elements = [
@@ -362,58 +299,31 @@ class Chat:
         else:
             return new_problem
 
-    def handle_generate_question(self, question_type, difficulty, textbox_prob1, textbox_prob2, 
-                             textbox_prob3, textbox_prob4, textbox_prob5, textbox_prob6, current_article):
-        output1, output2, output3, output4, output5, output6 = gr.update(), gr.update(), gr.update(), gr.update(), gr.update(), gr.update()
+    def handle_generate_question(self, question_type, difficulty, selected_textbox, current_article):
+        # Generate the new problem
+        # print(selected_textbox)
+        new_problem = self.generate_problem(question_type, current_article, difficulty, selected_textbox)
         
-        if question_type == "word_comprehension":
-            new_problem = self.generate_problem(question_type, current_article, difficulty, textbox_prob1)
-            if new_problem and textbox_prob1.strip():
-                output1 = textbox_prob1 + "\n---\n" + new_problem
-            else:
-                output1 = new_problem or textbox_prob1 or ""
-            
-        elif question_type == "grammatical_structure":
-            new_problem = self.generate_problem(question_type, current_article, difficulty, textbox_prob2)
-            if new_problem and textbox_prob2.strip():
-                output2 = textbox_prob2 + "\n---\n" + new_problem
-            else:
-                output2 = new_problem or textbox_prob2 or ""
-            
-        elif question_type == "textual_inference":
-            new_problem = self.generate_problem(question_type, current_article, difficulty, textbox_prob3)
-            if new_problem and textbox_prob3.strip():
-                output3 = textbox_prob3 + "\n---\n" + new_problem
-            else:
-                output3 = new_problem or textbox_prob3 or ""
-            
-        elif question_type == "chapter_summary":
-            new_problem = self.generate_problem(question_type, current_article, difficulty, textbox_prob4)
-            if new_problem and textbox_prob4.strip():
-                output4 = textbox_prob4 + "\n---\n" + new_problem
-            else:
-                output4 = new_problem or textbox_prob4 or ""
-            
-        elif question_type == "chapter_details":
-            new_problem = self.generate_problem(question_type, current_article, difficulty, textbox_prob5)
-            if new_problem and textbox_prob5.strip():
-                output5 = textbox_prob5 + "\n---\n" + new_problem
-            else:
-                output5 = new_problem or textbox_prob5 or ""
-            
-        elif question_type == "chapter_structure":
-            new_problem = self.generate_problem(question_type, current_article, difficulty, textbox_prob6)
-            if new_problem and textbox_prob6.strip():
-                output6 = textbox_prob6 + "\n---\n" + new_problem
-            else:
-                output6 = new_problem or textbox_prob6 or ""
-        
-        # Return all outputs but only the selected one will actually change
-        return output1, output2, output3, output4, output5, output6
+        # Prepare the output
+        if new_problem and selected_textbox.strip():
+            return selected_textbox + "\n---\n" + new_problem
+        else:
+            return new_problem or selected_textbox or ""
+
+
+
+    def create_problem(self, problem_type, difficulty, prompt_preview, current_article, problems):
+        """Create a new problem and add it to the list
+        TODO: Add timeout here
+        """
+        print(f"Create problem: {problem_type}, {difficulty}")
+        prompt = prompt_preview.format(generated_article=current_article)
+        problem_text = self.generate_problem(prompt)
+        problems.append((problem_type, problem_text))
+        return problems
 
     def render(self):
         with gr.Group(visible=False) as chat_ui:
-
             with gr.Row(equal_height=True):
                 # Left Column
                 with gr.Column():
@@ -428,19 +338,35 @@ class Chat:
                         self.question_type_dropdown.render()
                         self.difficulty_dropdown.render()
                     
+                    
+                    self.prompt_preview = gr.Textbox(
+                        label="Prompt Preview",
+                        lines=10,
+                        elem_classes=["fullscreen-editor"],
+                        value=self.prepare_prompt_template(self.question_type_dropdown.value, self.difficulty_dropdown.value)
+                    )
+                    
                     self.generate_question_button.render()
+                    self.spinner.render()
                     
                 # Right column
                 with gr.Column():
                     self.textbox.render()
                     
-                    # Render all textboxes
-                    self.textbox_prob1.render()
-                    self.textbox_prob2.render()
-                    self.textbox_prob3.render()
-                    self.textbox_prob4.render()
-                    self.textbox_prob5.render()
-                    self.textbox_prob6.render()
+                    self.problem_list.render()
+
+                    @gr.render(inputs=[self.problem_list])
+                    def render_problem_textboxes(problems):
+                        """Render all problem textboxes"""
+                        for i, textbox in enumerate(problems):
+                            problem_type, problem_text = textbox
+                            textbox = gr.Textbox(
+                                label=problem_type,
+                                value=problem_text,
+                                lines=4,
+                                interactive=True,
+                                elem_classes=["fullscreen-editor"]
+                            )
 
             # Move ChatInterface outside of the columns to avoid duplicate rendering
             gr.ChatInterface(
@@ -458,47 +384,42 @@ class Chat:
             with gr.Row():
                 download_button = gr.DownloadButton("Download Word Document", visible=False)
 
-        # Set up the new event handler for the generate question button
         self.generate_question_button.click(
-            fn=self.handle_generate_question,
-            inputs=[
-                self.question_type_dropdown,
-                self.difficulty_dropdown,
-                self.textbox_prob1,
-                self.textbox_prob2,
-                self.textbox_prob3,
-                self.textbox_prob4,
-                self.textbox_prob5,
-                self.textbox_prob6,
-                self.textbox
-            ],
-            outputs=[
-                self.textbox_prob1,
-                self.textbox_prob2, 
-                self.textbox_prob3,
-                self.textbox_prob4,
-                self.textbox_prob5,
-                self.textbox_prob6
-            ]
+            fn=lambda: gr.update(visible=True),  # Show spinner
+            outputs=self.spinner,
+            show_progress=False,
+        ).then(
+            fn=self.create_problem,
+            inputs=[self.question_type_dropdown, self.difficulty_dropdown, self.prompt_preview, self.textbox, self.problem_list],
+            outputs=self.problem_list,
+        ).then(
+            fn=lambda: gr.update(visible=False),  # Hide spinner
+            outputs=self.spinner,
+            show_progress=False,
         )
-        
-        # Keep the old button handlers for reference but they won't be used
-        # self.button1.click(self.append_problem, inputs=[self.button1, self.textbox_prob1, self.textbox], outputs=[self.textbox_prob1])
-        # self.button2.click(self.append_problem, inputs=[self.button2, self.textbox_prob2, self.textbox], outputs=[self.textbox_prob2])
-        # self.button3.click(self.append_problem, inputs=[self.button3, self.textbox_prob3, self.textbox], outputs=[self.textbox_prob3])
-        
+
+        # Add event handlers for prompt preview updates
+        self.question_type_dropdown.change(
+            fn=self.update_prompt_preview,
+            inputs=[self.question_type_dropdown, self.difficulty_dropdown],
+            outputs=[self.prompt_preview]
+        )
+
+        self.difficulty_dropdown.change(
+            fn=self.update_prompt_preview,
+            inputs=[self.question_type_dropdown, self.difficulty_dropdown],
+            outputs=[self.prompt_preview]
+        )
+
         self.submit_button.click(
             fn=self._generate_final_exam_doc,
-            inputs=[
-                self.textbox,
-                self.textbox_prob1,
-                self.textbox_prob2,
-                self.textbox_prob3,
-                self.textbox_prob4,
-                self.textbox_prob5,
-                self.textbox_prob6
-            ],
+            inputs=[self.textbox, self.problem_list],
             outputs=[download_button, download_button]
         )
 
         return chat_ui  # Return the group for access in the main app 
+
+    def update_prompt_preview(self, question_type, difficulty):
+        """Update the prompt preview based on current inputs"""
+        prompt = self.prepare_prompt_template(question_type, difficulty)
+        return prompt
