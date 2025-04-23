@@ -20,6 +20,7 @@ textual_inference_generation_path = Path(__file__).parent.parent / "prompt" / "t
 chapter_summary_generation_path = Path(__file__).parent.parent / "prompt" / "chapter_summary.jinja"
 chapter_details_generation_path = Path(__file__).parent.parent / "prompt" / "chapter_details.jinja"
 chapter_structure_generation_path = Path(__file__).parent.parent / "prompt" / "chapter_structure.jinja"
+
 with open(ARTICLE_REVISION_PATH, 'r', encoding='utf-8') as f:
     ARTICLE_REVISION_PROMPT = f.read()
 
@@ -96,53 +97,6 @@ class Chat:
 
         self.problem_list = gr.State([])
 
-        # Store problem textboxes in a list
-        self.problem_textboxes = [
-            gr.Textbox(  # word_comprehension
-                label="word_comprehension",  
-                lines=4,
-                render=False,
-                interactive=True,
-                elem_classes=["fullscreen-editor"]
-            ),
-            gr.Textbox(  # grammatical_structure
-                label="grammatical_structure",
-                lines=4,
-                render=False,
-                interactive=True,
-                elem_classes=["fullscreen-editor"]
-            ),
-            gr.Textbox(  # textual_inference
-                label="textual_inference",
-                lines=4,
-                render=False,
-                interactive=True,
-                elem_classes=["fullscreen-editor"]
-            ),
-            gr.Textbox(  # chapter_summary
-                label="chapter_summary",
-                lines=4,
-                render=False,
-                interactive=True,
-                elem_classes=["fullscreen-editor"]
-            ),
-            gr.Textbox(  # chapter_details
-                label="chapter_details",
-                lines=4,
-                render=False,
-                interactive=True,
-                elem_classes=["fullscreen-editor"]
-            ),
-            gr.Textbox(  # chapter_structure
-                label="chapter_structure",
-                lines=4,
-                render=False,
-                interactive=True,
-                elem_classes=["fullscreen-editor"]
-            )
-        ]
-
-
         # Problem type to index mapping
         self.problem_type_to_index = {
             "word_comprehension": 0,
@@ -152,7 +106,6 @@ class Chat:
             "chapter_details": 4,
             "chapter_structure": 5
         }
-
 
         # Replace buttons with dropdowns
         self.difficulty_dropdown = gr.Dropdown(
@@ -187,7 +140,7 @@ class Chat:
     def _generate_final_exam_doc(
             self, 
             article_content,
-            question_1, question_2, question_3, question_4, question_5, question_6
+            problem_list
         ):
         """Compose the final exam from the three problem textboxes."""
         
@@ -196,15 +149,9 @@ class Chat:
         doc_file_name = f"英文考題 - {timestamp}"
         
         # Return the exam content as a downloadable document
-        question_info_tuple = [
-            ("文章", article_content),
-            ("題型1 - Word Comprehension", question_1),
-            ("題型2 - Grammatical Structure", question_2),
-            ("題型3 - Textual Inference", question_3),
-            ("題型4 - Chapter Summary", question_4),
-            ("題型5 - Chapter Details", question_5),
-            ("題型6 - Chapter Structure", question_6)
-        ]
+        question_info_tuple = [("文章", article_content)]
+        for problem_type, problem_content in problem_list:
+            question_info_tuple.append((problem_type, problem_content))
         doc_file_name = generate_docx_file(
             doc_file_name,
             question_info_tuple
@@ -326,27 +273,7 @@ class Chat:
         if json_objects:
             last_json = json_objects[-1]
             question_content = last_json.get('current_lesson_plan', '')
-            # if question_content and self._validate_question_format(question_content):
             return question_content
-            # else:
-                # app_logger.error(f"Invalid question format: {question_content}")
-                # return "Invalid question format. Please try again."
-    # def handle_response_for_exceeding_token_quota(self, message, history, textbox_content):
-    #     # Mock response data
-    #     mock_response = {
-    #         'current_lesson_plan': f"Here is a mock lesson plan based on: {textbox_content}",
-    #         'suggestion': "This is a mock suggestion for your content.",
-    #         'next_step_prompt': [["Continue", "Revise", "Start Over"]]
-    #     }
-        
-    #     # Simulate streaming by yielding partial responses
-    #     yield "Loading suggestion...", "", [[]]
-    #     yield mock_response['suggestion'], "", [[]]
-    #     yield mock_response['suggestion'], mock_response['current_lesson_plan'], [[]]
-    #     yield mock_response['suggestion'], mock_response['current_lesson_plan'], mock_response['next_step_prompt']
-    
-
-
     
     def _validate_question_format(self, text):
         required_elements = [
@@ -457,20 +384,6 @@ class Chat:
             with gr.Row():
                 download_button = gr.DownloadButton("Download Word Document", visible=False)
 
-
-
-        # self.generate_question_button.click(
-        #     fn=self.handle_generate_question,
-        #     inputs=[
-        #         self.question_type_dropdown,
-        #         self.difficulty_dropdown,
-        #         self.problem_textboxes[self.selected_problem_index.value],
-        #         self.textbox,
-        #         self.textbox
-        #     ],
-        #     outputs=self.problem_textboxes[self.selected_problem_index.value]
-        # )
-        
         self.generate_question_button.click(
             fn=lambda: gr.update(visible=True),  # Show spinner
             outputs=self.spinner,
@@ -498,15 +411,9 @@ class Chat:
             outputs=[self.prompt_preview]
         )
 
-   
-        # Keep the old button handlers for reference but they won't be used
-        # self.button1.click(self.append_problem, inputs=[self.button1, self.textbox_prob1, self.textbox], outputs=[self.textbox_prob1])
-        # self.button2.click(self.append_problem, inputs=[self.button2, self.textbox_prob2, self.textbox], outputs=[self.textbox_prob2])
-        # self.button3.click(self.append_problem, inputs=[self.button3, self.textbox_prob3, self.textbox], outputs=[self.textbox_prob3])
-        
         self.submit_button.click(
             fn=self._generate_final_exam_doc,
-            inputs=[self.textbox] + self.problem_textboxes,
+            inputs=[self.textbox, self.problem_list],
             outputs=[download_button, download_button]
         )
 
