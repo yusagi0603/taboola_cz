@@ -6,3 +6,23 @@ Select a sentence from the provided article.
 Step 2:
 Provide four answer options clearly labeled A, B, C, and D.
 	•	Clearly indicate the correct grammatical answer.
+
+{% if examples %}
+Here are some example questions to guide your work:
+
+{% for example in examples %}
+Example {{ loop.index }}:
+Question: {{ example.題幹 }}
+Options: {{ example.選項 }}
+Year: {{ example.年度 }}
+Question Number: {{ example.題號 }}
+{% endfor %}
+{% endif %}
+
+{% if difficulty_level %}
+Difficulty Level: {{ difficulty_level }}
+{% endif %}
+
+{% if target_audience %}
+Target Audience: {{ target_audience }}
+{% endif %}
