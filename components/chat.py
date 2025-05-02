@@ -1,68 +1,23 @@
-from pathlib import Path
+import re
+import json
 import time
 import gradio as gr
-import json
-from json_repair import repair_json
-import re
 from datetime import datetime
+from json_repair import repair_json
 
 from logger import app_logger
 from utils import generate_docx_file
+from handlers.prompt_handler import PromptHandler
 
 
 CONVERSATION_STARTER = "Click this button to make the passage longer"
-ARTICLE_REVISION_PATH = Path(__file__).parent.parent / "prompt" / "article_revision.jinja"
-ARTICLE_FORMAT_PROMPT = Path(__file__).parent.parent / "prompt" / "article_format.jinja"
-QUESTION_FORMAT_PROMPT = Path(__file__).parent.parent / "prompt" / "question_format.jinja"
-word_comprehension_generation_path = Path(__file__).parent.parent / "prompt" / "word_comprehension.jinja"
-grammatical_structure_generation_path = Path(__file__).parent.parent / "prompt" / "grammatical_structure.jinja"
-textual_inference_generation_path = Path(__file__).parent.parent / "prompt" / "textual_inference.jinja"
-chapter_summary_generation_path = Path(__file__).parent.parent / "prompt" / "chapter_summary.jinja"
-chapter_details_generation_path = Path(__file__).parent.parent / "prompt" / "chapter_details.jinja"
-chapter_structure_generation_path = Path(__file__).parent.parent / "prompt" / "chapter_structure.jinja"
-
-with open(ARTICLE_REVISION_PATH, 'r', encoding='utf-8') as f:
-    ARTICLE_REVISION_PROMPT = f.read()
-
-with open(ARTICLE_FORMAT_PROMPT, 'r', encoding='utf-8') as f:
-    ARTICLE_FORMAT_PROMPT = f.read()
-
-with open(QUESTION_FORMAT_PROMPT, 'r', encoding='utf-8') as f:
-    QUESTION_FORMAT_PROMPT = f.read()
-
-with open(word_comprehension_generation_path, 'r', encoding='utf-8') as f:
-    word_comprehension_prompt = f.read()
-
-with open(grammatical_structure_generation_path, 'r', encoding='utf-8') as f:
-    grammatical_structure_prompt = f.read()
-
-with open(textual_inference_generation_path, 'r', encoding='utf-8') as f:
-    textual_inference_prompt = f.read()
-
-with open(chapter_summary_generation_path, 'r', encoding='utf-8') as f:
-    chapter_summary_prompt = f.read()
-
-with open(chapter_details_generation_path, 'r', encoding='utf-8') as f:
-    chapter_details_prompt = f.read()
-
-with open(chapter_structure_generation_path, 'r', encoding='utf-8') as f:
-    chapter_structure_prompt = f.read()
-
-# Mapping of problem types to their corresponding prompts
-PROBLEM_TYPE_TO_PROMPT = {
-    "word_comprehension": word_comprehension_prompt,
-    "grammatical_structure": grammatical_structure_prompt,
-    "textual_inference": textual_inference_prompt,
-    "chapter_summary": chapter_summary_prompt,
-    "chapter_details": chapter_details_prompt,
-    "chapter_structure": chapter_structure_prompt
-}
 
 class Chat:
     def __init__(self, client, assistant_id):
         self.client = client
         self.assistant_id = assistant_id
         self.chat_ui = None  # Will store reference to the chat UI group
+        self.prompt_handler = PromptHandler()
         self._define_components()
         self.logger = app_logger
 
@@ -159,20 +114,18 @@ class Chat:
         
         return doc_file_name, gr.update(visible=True) 
 
-
     def _handle_response(self, message, history, textbox_content):
         integrated_message = message
 
         if message == CONVERSATION_STARTER:
-            integrated_message = ARTICLE_REVISION_PROMPT.format(
-                generated_article=textbox_content, 
-                message=message,
+            integrated_message = self.prompt_handler.prepare_article_revision_prompt(
+                article_content=textbox_content, 
+                message=message
             )
         elif textbox_content != "":
-            integrated_message = ARTICLE_FORMAT_PROMPT.format(
-                generated_article=textbox_content,  # Use the parameter
-                message=message,
-                textbox_content=textbox_content
+            integrated_message = self.prompt_handler.prepare_article_format_prompt(
+                article_content=textbox_content,
+                message=message
             )
 
         thread = self.client.beta.threads.create()
@@ -226,22 +179,19 @@ class Chat:
             return gr.Dataset(samples=next_step_prompt, visible=True)
         return gr.Dataset(samples=[['-']], visible=False)
 
-    def prepare_prompt_template(self, problem_type, difficulty="Medium"):
-        """Prepare the prompt template without article content"""
-        prompt = PROBLEM_TYPE_TO_PROMPT[problem_type]
-        
-        integrated_prompt = QUESTION_FORMAT_PROMPT.format(
-            prompt=prompt,
-            difficulty=difficulty,
-            generated_article="{generated_article}"
+    def prepare_prompt_template(self, problem_type, difficulty, current_article):
+        """Delegate prompt preparation to the QuestionPromptHandler"""
+        return self.prompt_handler.prepare_question_prompt(
+            problem_type=problem_type,
+            current_article=current_article,
+            difficulty=difficulty
         )
-        
-        return integrated_prompt
 
-    def generate_problem(self, prompt):
-        """Generate a problem using the prepared prompt"""
-
+    def generate_problem(self, prompt, timeout=60):
         print(f"Generate problem with prompt: {prompt[:100]}...")
+        
+        # Start timing
+        start_time = time.time()
 
         thread = self.client.beta.threads.create()
         self.client.beta.threads.messages.create(
@@ -252,29 +202,47 @@ class Chat:
         
         full_response = "" 
         
-        with self.client.beta.threads.runs.stream(
-            thread_id=thread.id,
-            assistant_id=self.assistant_id
-        ) as stream:
-            for text_delta in stream.text_deltas:
-                full_response += text_delta
+        try:
+            with self.client.beta.threads.runs.stream(
+                thread_id=thread.id,
+                assistant_id=self.assistant_id
+            ) as stream:
+                for text_delta in stream.text_deltas:
+                    # Check if it exceeded the timeout
+                    if time.time() - start_time > timeout:
+                        print(f"Generation timed out after {timeout} seconds")
+                        break
+                        
+                    full_response += text_delta
+        except Exception as e:
+            self.logger.error(f"Error during problem generation: {str(e)}")
+            return f"Error generating problem: {str(e)}"
         
-        json_objects = []
-        start_positions = [m.start() for m in re.finditer(r'{\s*"', full_response)]
-        
-        for start in start_positions:
-            try:
-                json_str = full_response[start:]
-                parsed = json.loads(json_str)
-                json_objects.append(parsed)
-            except:
-                pass
+        # Try to extract question content from JSON if present
+        try:
+            json_objects = []
+            start_positions = [m.start() for m in re.finditer(r'{\s*"', full_response)]
+            
+            for start in start_positions:
+                try:
+                    json_str = full_response[start:]
+                    parsed = json.loads(json_str)
+                    json_objects.append(parsed)
+                except:
+                    pass
 
-        if json_objects:
-            last_json = json_objects[-1]
-            question_content = last_json.get('current_lesson_plan', '')
-            return question_content
-    
+            if json_objects:
+                last_json = json_objects[-1]
+                question_content = last_json.get('current_lesson_plan', '')
+                if question_content:
+                    return question_content
+        except Exception as e:
+            self.logger.error(f"Error parsing JSON: {str(e)}")
+        
+        # If we couldn't extract JSON or no question_content was found,
+        # return the full raw response for post-processing
+        return full_response
+
     def _validate_question_format(self, text):
         required_elements = [
             r'Question: ',
@@ -291,38 +259,103 @@ class Chat:
                 return False
         return True
 
-    def append_problem(self, question_type, difficulty, current_content, current_article):
-        new_problem = self.generate_problem(question_type, current_article, difficulty)
-        
-        if current_content.strip():
-            return current_content + "\n---\n" + new_problem
+    def post_process_question(self, problem_type, question_text):
+        if not question_text:
+            return f"Error: Empty response for {problem_type} question."
+
+        text = question_text.strip()
+        if text.startswith('{') and text.endswith('}'):
+            try:
+                json_data = json.loads(text)
+                if 'current_lesson_plan' in json_data:
+                    text = json_data['current_lesson_plan']
+            except Exception:
+                pass
+
+        text = re.sub(r'```[a-zA-Z]*\n', '', text)
+        text = re.sub(r'```', '', text)
+
+        text = text.replace('\r\n', '\n')
+        option_patterns = [
+            (r'Option\s*([A-D])[:\.\s]*', r'\1) '),    # Option A: -> A)
+            (r'([A-D])\.\s*', r'\1) '),                # A. -> A)
+            (r'\(([A-D])\)', r'\1)'),                  # (A) -> A)
+            (r'([A-D]):', r'\1)'),                     # A: -> A)
+            (r'([A-D])\)\s*\)', r'\1)'),               # A)) -> A)
+            (r'([A-D])\)\s*([^\s])', r'\1) \2'),        # Ensure space after A)
+        ]
+        for pattern, repl in option_patterns:
+            text = re.sub(pattern, repl, text)
+
+        if not text.startswith("Question:") and "Question:" not in text:
+            match = re.search(r'^\s*(\d+\.\s*|Q\d+\.\s*|Question\s*\d+:)', text, re.IGNORECASE)
+            if match:
+                text = "Question: " + text[match.end():].strip()
+            else:
+                text = "Question: " + text
+
+        if "Options:" not in text and any(opt in text for opt in ["A)", "B)", "C)", "D)"]):
+            first_option = re.search(r'(A\))', text)
+            if first_option:
+                idx = first_option.start()
+                text = text[:idx] + "Options:\n" + text[idx:]
+
+        if "Answer:" not in text:
+            text += "\n\nNote: Missing 'Answer:' field."
         else:
-            return new_problem
+            answer_match = re.search(r'Answer:\s*([A-D])\s*[^)]?', text)
+            if answer_match:
+                answer_letter = answer_match.group(1)
+                text = re.sub(r'Answer:\s*([A-D])\s*[^)]?', f'Answer: {answer_letter})', text)
 
-    def handle_generate_question(self, question_type, difficulty, selected_textbox, current_article):
-        # Generate the new problem
-        # print(selected_textbox)
-        new_problem = self.generate_problem(question_type, current_article, difficulty, selected_textbox)
+        text = re.sub(r'\n{3,}', '\n\n', text)
+
+        required_elements = ["Question:", "Options:", "A)", "B)", "C)", "D)", "Answer:"]
+        missing_elements = [elem for elem in required_elements if elem not in text]
+        if missing_elements:
+            text += "\n\nNote: The following elements are missing: " + ", ".join(missing_elements)
+
+        return text
+
+    def create_problem(self, problem_type, difficulty, prompt_preview, current_article, problems, timeout=60):
+
+        start_time = time.time()
         
-        # Prepare the output
-        if new_problem and selected_textbox.strip():
-            return selected_textbox + "\n---\n" + new_problem
-        else:
-            return new_problem or selected_textbox or ""
-
-
-
-    def create_problem(self, problem_type, difficulty, prompt_preview, current_article, problems):
-        """Create a new problem and add it to the list
-        TODO: Add timeout here
-        """
-        print(f"Create problem: {problem_type}, {difficulty}")
-        prompt = prompt_preview.format(generated_article=current_article)
-        problem_text = self.generate_problem(prompt)
-        problems.append((problem_type, problem_text))
+        try:
+            raw_problem_text = self.generate_problem(prompt_preview, timeout=timeout)
+            
+            problem_text = self.post_process_question(
+                problem_type=problem_type,
+                question_text=raw_problem_text
+            )
+            
+            generation_time = time.time() - start_time
+            print(f"Problem generated and post-processed in {generation_time:.2f} seconds")
+            
+            # Add the problem to the list
+            problems.append((problem_type, problem_text))
+            
+        except Exception as e:
+            self.logger.error(f"Error in create_problem: {str(e)}")
+            problems.append((problem_type, f"Error generating problem: {str(e)}"))
+            
         return problems
 
-    def render(self):
+    def reprocess_problems(self, problems):
+        if not problems:
+            return problems
+            
+        reprocessed_problems = []
+        for problem_type, problem_text in problems:
+            processed_text = self.post_process_question(
+                problem_type=problem_type,
+                question_text=problem_text
+            )
+            reprocessed_problems.append((problem_type, processed_text))
+            
+        return reprocessed_problems
+
+    def render(self):  
         with gr.Group(visible=False) as chat_ui:
             with gr.Row(equal_height=True):
                 # Left Column
@@ -335,15 +368,19 @@ class Chat:
                     
                     # Move dropdowns and button to left column
                     with gr.Row():
-                        self.question_type_dropdown.render()
+
+                        self.question_type_dropdown = gr.Dropdown(
+                            choices=["word_comprehension", "grammatical_structure", "textual_inference", "chapter_summary", "chapter_details", "chapter_structure"],
+                            value= "word_comprehension",
+                            label="Question Type"
+                        )
                         self.difficulty_dropdown.render()
-                    
-                    
+                                        
                     self.prompt_preview = gr.Textbox(
                         label="Prompt Preview",
                         lines=10,
                         elem_classes=["fullscreen-editor"],
-                        value=self.prepare_prompt_template(self.question_type_dropdown.value, self.difficulty_dropdown.value)
+                        value=self.prepare_prompt_template(self.question_type_dropdown.value, self.difficulty_dropdown.value, self.textbox.value)
                     )
                     
                     self.generate_question_button.render()
@@ -383,13 +420,15 @@ class Chat:
                 self.submit_button.render()
             with gr.Row():
                 download_button = gr.DownloadButton("Download Word Document", visible=False)
+                
 
         self.generate_question_button.click(
             fn=lambda: gr.update(visible=True),  # Show spinner
             outputs=self.spinner,
             show_progress=False,
         ).then(
-            fn=self.create_problem,
+            fn=lambda problem_type, difficulty, prompt_preview, current_article, problems: 
+                self.create_problem(problem_type, difficulty, prompt_preview, current_article, problems, timeout=30),
             inputs=[self.question_type_dropdown, self.difficulty_dropdown, self.prompt_preview, self.textbox, self.problem_list],
             outputs=self.problem_list,
         ).then(
@@ -401,13 +440,13 @@ class Chat:
         # Add event handlers for prompt preview updates
         self.question_type_dropdown.change(
             fn=self.update_prompt_preview,
-            inputs=[self.question_type_dropdown, self.difficulty_dropdown],
+            inputs=[self.question_type_dropdown, self.difficulty_dropdown, self.textbox],
             outputs=[self.prompt_preview]
         )
 
         self.difficulty_dropdown.change(
             fn=self.update_prompt_preview,
-            inputs=[self.question_type_dropdown, self.difficulty_dropdown],
+            inputs=[self.question_type_dropdown, self.difficulty_dropdown, self.textbox],
             outputs=[self.prompt_preview]
         )
 
@@ -419,7 +458,5 @@ class Chat:
 
         return chat_ui  # Return the group for access in the main app 
 
-    def update_prompt_preview(self, question_type, difficulty):
-        """Update the prompt preview based on current inputs"""
-        prompt = self.prepare_prompt_template(question_type, difficulty)
-        return prompt
+    def update_prompt_preview(self, question_type, difficulty, current_article):
+        return self.prepare_prompt_template(question_type, difficulty, current_article)
