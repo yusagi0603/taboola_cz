@@ -59,7 +59,8 @@ class Chat:
             "textual_inference": 2,
             "chapter_summary": 3,
             "chapter_details": 4,
-            "chapter_structure": 5
+            "chapter_structure": 5,
+            "cloze": 6
         }
 
         # Replace buttons with dropdowns
@@ -287,6 +288,26 @@ class Chat:
         for pattern, repl in option_patterns:
             text = re.sub(pattern, repl, text)
 
+        if problem_type == "cloze":
+            questions = re.split(r'(?:\n|^)Question\s*\d*:', text)
+            if len(questions) > 1:
+                questions = [q.strip() for q in questions if q.strip()]
+                
+                formatted_questions = []
+                for i, question in enumerate(questions):
+                    if not question.startswith("Question:"):
+                        question = f"Question {i+1}: {question}"
+                    
+                    required_elements = ["Options:", "A)", "B)", "C)", "D)", "Answer:"]
+                    missing_elements = [elem for elem in required_elements if elem not in question]
+                    if missing_elements:
+                        question += "\n\nNote: The following elements are missing: " + ", ".join(missing_elements)
+                    
+                    formatted_questions.append(question)
+                
+                text = "\n\n".join(formatted_questions)
+                return text
+
         if not text.startswith("Question:") and "Question:" not in text:
             match = re.search(r'^\s*(\d+\.\s*|Q\d+\.\s*|Question\s*\d+:)', text, re.IGNORECASE)
             if match:
@@ -322,6 +343,11 @@ class Chat:
         start_time = time.time()
         
         try:
+            # For cloze tests, we need to keep the markers in the prompt but remove them from the article
+            if problem_type == "cloze":
+                # Remove the {} markers from the article display using the helper method
+                current_article = self.prompt_handler.remove_cloze_markers(current_article)
+            
             raw_problem_text = self.generate_problem(prompt_preview, timeout=timeout)
             
             problem_text = self.post_process_question(
@@ -370,7 +396,7 @@ class Chat:
                     with gr.Row():
 
                         self.question_type_dropdown = gr.Dropdown(
-                            choices=["word_comprehension", "grammatical_structure", "textual_inference", "chapter_summary", "chapter_details", "chapter_structure"],
+                            choices=["word_comprehension", "grammatical_structure", "textual_inference", "chapter_summary", "chapter_details", "chapter_structure", "cloze"],
                             value= "word_comprehension",
                             label="Question Type"
                         )
@@ -459,4 +485,12 @@ class Chat:
         return chat_ui  # Return the group for access in the main app 
 
     def update_prompt_preview(self, question_type, difficulty, current_article):
+        # For cloze tests, preprocess the article to extract markers for the prompt
+        # but keep the article without markers for the UI
+        if question_type == "cloze":
+            # Store the original article with markers for prompt generation
+            marked_article = current_article
+            # Remove the {} markers for display in the UI using the helper method
+            unmarked_article = self.prompt_handler.remove_cloze_markers(current_article)
+            return self.prepare_prompt_template(question_type, difficulty, marked_article)
         return self.prepare_prompt_template(question_type, difficulty, current_article)

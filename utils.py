@@ -20,22 +20,11 @@ from docx import Document
     
 from logger import app_logger
 from client import llm_client
+from handlers.prompt_handler import PromptHandler
 
 import gradio as gr
 
-ARTICLE_GENERATION_PATH = Path(__file__).parent / "prompt" / "article_generation.jinja"
-ARTICLE_REWRITE_PATH = Path(__file__).parent / "prompt" / "article_rewrite.jinja"
-QUESTION_FORMAT_PATH = Path(__file__).parent / "prompt" / "question_format.jinja"
-
-with open(ARTICLE_GENERATION_PATH, 'r', encoding='utf-8') as f:
-    ARTICLE_GENERATION = f.read()
-
-with open(ARTICLE_REWRITE_PATH, 'r', encoding='utf-8') as f:
-    ARTICLE_REWRITE = f.read()
-
-with open(QUESTION_FORMAT_PATH, 'r', encoding='utf-8') as f:
-    QUESTION_FORMAT = f.read()
-
+prompt_handler = PromptHandler()
 
 # spent 4m 50s downloading all 175 files
 # def embed_from_drive(folder_id):
@@ -115,26 +104,21 @@ def call_llm_to_generate_article(
         grade_values, unit_values, topic_values, grammar_values, input_article_value, textbook_vocab_values, additional_vocab_values=None
     ):
 
+    context = {
+        "grade_values": grade_values,
+        "topic_values": topic_values,
+        "grammar_values": grammar_values,
+        "unit_values": unit_values,
+        "textbook_vocab_values": textbook_vocab_values,
+        "additional_vocab_values": additional_vocab_values if additional_vocab_values else ""
+    }
+
     if input_article_value:
-        user_prompt = ARTICLE_REWRITE.format(
-            grade_values=grade_values,
-            topic_values=topic_values,
-            grammar_values=grammar_values,
-            unit_values=unit_values,
-            input_article_value=input_article_value,
-            textbook_vocab_values=textbook_vocab_values,
-            additional_vocab_values=additional_vocab_values if additional_vocab_values else ""
-        )
+        context["input_article_value"] = input_article_value
+        user_prompt = prompt_handler.render_template("article_rewrite", context)
         app_logger.info("Rewriting article with input")
     else:
-        user_prompt = ARTICLE_GENERATION.format(
-            grade_values=grade_values,
-            topic_values=topic_values,
-            grammar_values=grammar_values,
-            unit_values=unit_values,
-            textbook_vocab_values=textbook_vocab_values,
-            additional_vocab_values=additional_vocab_values if additional_vocab_values else ""
-        )
+        user_prompt = prompt_handler.render_template("article_generation", context)
         app_logger.info("Generating article without input")
 
     generated_article = _call_llm_with_prompt(
@@ -147,13 +131,13 @@ def call_llm_to_generate_article(
 
 def call_llm_to_generate_question(question_type):
 
-    system_prompt, user_prompt = "You are a question generator for English exam in Taiwan.", \
-        f"Please generate a question based on the question type: {question_type}"
+    system_prompt = "You are a question generator for English exam in Taiwan."
+    user_prompt = f"Please generate a question based on the question type: {question_type}"
 
     generated_question = _call_llm_with_prompt(
         system_prompt=system_prompt,
         user_prompt=user_prompt,
-        response_format=QUESTION_FORMAT
+        response_format={"type": "json_object"}
     )
     return generated_question
 
@@ -221,4 +205,3 @@ def generate_docx_file(doc_file_name, insert_doc_info):
     doc.save(doc_file_name)
 
     return doc_file_name
-
