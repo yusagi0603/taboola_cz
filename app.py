@@ -5,14 +5,14 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 import gradio as gr
-from components.chat import Chat
-from components.entry_form import EntryForm
-from components.password import Password
+from exam_maker.components.chat import Chat
+from exam_maker.components.entry_form import EntryForm
+from exam_maker.components.password import Password
 
-from config import (
+from exam_maker.config import (
     ASSISTANT_ID
 )
-from client import llm_client
+from exam_maker.client import llm_client
 
 # View existing assistants
 existed_assistants = llm_client.beta.assistants.list(

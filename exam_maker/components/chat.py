@@ -5,9 +5,9 @@ import gradio as gr
 from datetime import datetime
 from json_repair import repair_json
 
-from logger import app_logger
-from utils import generate_docx_file
-from handlers.prompt_handler import PromptHandler
+from exam_maker.logger import app_logger
+from exam_maker.utils import generate_docx_file
+from exam_maker.handlers.prompt_handler import PromptHandler
 
 
 CONVERSATION_STARTER = "Click this button to make the passage longer"
