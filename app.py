@@ -67,4 +67,4 @@ with gr.Blocks(css=custom_css) as demo:
         outputs=[password_popup, main_ui, error_message]
     )
 
-demo.launch(debug=True, share=True)
+demo.launch(share=True, show_error=True)
