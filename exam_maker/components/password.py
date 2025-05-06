@@ -1,5 +1,5 @@
 import gradio as gr
-from config import CORRECT_PASSWORD  # Import directly in the Password module
+from exam_maker.config import CORRECT_PASSWORD  # Import directly in the Password module
 
 class Password:
     def __init__(self):

@@ -1,31 +1,20 @@
-import json
 from pathlib import Path
 
-from typing_extensions import override
-
-from config import (
-    OPENAI_API_KEY,
-    ASSISTANT_NAME,
-    ASSISTANT_DESCRIPTION,
+from exam_maker.config import (
     ASSISTANT_MODEL,
     CORRECT_PASSWORD,
-    ASSISTANT_ID,
 )
-
-from openai import AssistantEventHandler
-
-import json
 
 from docx import Document
     
-from logger import app_logger
-from client import llm_client
+from exam_maker.logger import app_logger
+from exam_maker.client import llm_client
 
 import gradio as gr
 
-ARTICLE_GENERATION_PATH = Path(__file__).parent / "prompt" / "article_generation.jinja"
-ARTICLE_REWRITE_PATH = Path(__file__).parent / "prompt" / "article_rewrite.jinja"
-QUESTION_FORMAT_PATH = Path(__file__).parent / "prompt" / "question_format.jinja"
+ARTICLE_GENERATION_PATH = Path(__file__).parent.parent / "prompt" / "article_generation.jinja"
+ARTICLE_REWRITE_PATH = Path(__file__).parent.parent / "prompt" / "article_rewrite.jinja"
+QUESTION_FORMAT_PATH = Path(__file__).parent.parent / "prompt" / "question_format.jinja"
 
 with open(ARTICLE_GENERATION_PATH, 'r', encoding='utf-8') as f:
     ARTICLE_GENERATION = f.read()
