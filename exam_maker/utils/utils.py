@@ -5,16 +5,14 @@ from exam_maker.config import (
     CORRECT_PASSWORD,
 )
 
-from docx import Document
-    
 from exam_maker.logger import app_logger
 from exam_maker.client import llm_client
 
 import gradio as gr
 
-ARTICLE_GENERATION_PATH = Path(__file__).parent.parent / "prompt" / "article_generation.jinja"
-ARTICLE_REWRITE_PATH = Path(__file__).parent.parent / "prompt" / "article_rewrite.jinja"
-QUESTION_FORMAT_PATH = Path(__file__).parent.parent / "prompt" / "question_format.jinja"
+ARTICLE_GENERATION_PATH = Path(__file__).parent.parent.parent / "prompt" / "article_generation.jinja"
+ARTICLE_REWRITE_PATH = Path(__file__).parent.parent.parent / "prompt" / "article_rewrite.jinja"
+QUESTION_FORMAT_PATH = Path(__file__).parent.parent.parent / "prompt" / "question_format.jinja"
 
 with open(ARTICLE_GENERATION_PATH, 'r', encoding='utf-8') as f:
     ARTICLE_GENERATION = f.read()
@@ -145,69 +143,4 @@ def call_llm_to_generate_question(question_type):
         response_format=QUESTION_FORMAT
     )
     return generated_question
-
-
-def create_google_doc(self, title, content):
-    """Create a Google Doc with the given title and content."""
-    try:
-        # Import necessary libraries for Google Docs API
-        from googleapiclient.discovery import build
-        from google.oauth2 import service_account
-        
-        # Set up credentials and service
-        SCOPES = ['https://www.googleapis.com/auth/documents']
-        SERVICE_ACCOUNT_FILE = 'credentials.json'  # Path to your service account credentials
-        
-        credentials = service_account.Credentials.from_service_account_file(
-            SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-        docs_service = build('docs', 'v1', credentials=credentials)
-        
-        # Create a new document
-        document = {
-            'title': title
-        }
-        doc = docs_service.documents().create(body=document).execute()
-        document_id = doc.get('documentId')
-        
-        # Insert content into the document
-        requests = [
-            {
-                'insertText': {
-                    'location': {
-                        'index': 1
-                    },
-                    'text': content
-                }
-            }
-        ]
-        
-        docs_service.documents().batchUpdate(
-            documentId=document_id,
-            body={'requests': requests}
-        ).execute()
-        
-        # Get the document URL
-        doc_url = f"https://docs.google.com/document/d/{document_id}/edit"
-        return doc_url
-        
-    except Exception as e:
-        app_logger.error(f"Error creating Google Doc: {str(e)}")
-        return None
-
-
-def generate_docx_file(doc_file_name, insert_doc_info):
-    
-    # # Create a Word document
-    doc = Document()
-    doc.add_heading(doc_file_name, 0)
-    
-    # # Add each question to the document
-    for content_type, content in insert_doc_info:
-        doc.add_heading(f"{content_type}", level=1)
-        doc.add_paragraph(content)
-        doc.add_paragraph("")  # Add some spacing
-
-    doc.save(doc_file_name)
-
-    return doc_file_name
 
