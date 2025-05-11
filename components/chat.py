@@ -343,11 +343,6 @@ class Chat:
         start_time = time.time()
         
         try:
-            # For cloze tests, we need to keep the markers in the prompt but remove them from the article
-            if problem_type == "cloze":
-                # Remove the {} markers from the article display using the helper method
-                current_article = self.prompt_handler.remove_cloze_markers(current_article)
-            
             raw_problem_text = self.generate_problem(prompt_preview, timeout=timeout)
             
             problem_text = self.post_process_question(
@@ -486,11 +481,7 @@ class Chat:
 
     def update_prompt_preview(self, question_type, difficulty, current_article):
         # For cloze tests, preprocess the article to extract markers for the prompt
-        # but keep the article without markers for the UI
         if question_type == "cloze":
-            # Store the original article with markers for prompt generation
             marked_article = current_article
-            # Remove the {} markers for display in the UI using the helper method
-            unmarked_article = self.prompt_handler.remove_cloze_markers(current_article)
             return self.prepare_prompt_template(question_type, difficulty, marked_article)
         return self.prepare_prompt_template(question_type, difficulty, current_article)
