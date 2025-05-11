@@ -8,13 +8,13 @@ import re
 
 class PromptHandler:
     def __init__(self):
-        self.template_dir = Path(__file__).parent.parent / "prompt"
+        self.template_dir = Path(__file__).parent.parent.parent / "prompt"
         self.env = Environment(
             loader=FileSystemLoader(self.template_dir),
             autoescape=select_autoescape(['html', 'xml'])
         )
         
-        self.csv_dir = Path(__file__).parent.parent / "problem_example"
+        self.csv_dir = Path(__file__).parent.parent.parent / "problem_example"
         
         self.question_format_prompt_path = self.template_dir / "question_format.jinja"
         self.article_revision_path = self.template_dir / "article_revision.jinja"

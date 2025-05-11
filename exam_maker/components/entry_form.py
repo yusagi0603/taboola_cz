@@ -1,7 +1,7 @@
 import gradio as gr
-import option  # Import options directly in the EntryForm module
+from exam_maker import option
 import pandas as pd
-from utils import call_llm_to_generate_article
+from exam_maker.utils import call_llm_to_generate_article
 
 class EntryForm:
     def __init__(self, llm_client, assistant_id):

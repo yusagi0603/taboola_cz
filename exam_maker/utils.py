@@ -1,26 +1,15 @@
-import json
 from pathlib import Path
 
-from typing_extensions import override
-
-from config import (
-    OPENAI_API_KEY,
-    ASSISTANT_NAME,
-    ASSISTANT_DESCRIPTION,
+from exam_maker.config import (
     ASSISTANT_MODEL,
     CORRECT_PASSWORD,
-    ASSISTANT_ID,
 )
-
-from openai import AssistantEventHandler
-
-import json
 
 from docx import Document
     
-from logger import app_logger
-from client import llm_client
-from handlers.prompt_handler import PromptHandler
+from exam_maker.logger import app_logger
+from exam_maker.client import llm_client
+from exam_maker.handlers.prompt_handler import PromptHandler
 
 import gradio as gr
 
