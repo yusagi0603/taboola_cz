@@ -31,9 +31,9 @@ class PromptHandler:
             "word_comprehension",
             "grammatical_structure",
             "textual_inference",
-            "chapter_summary",
-            "chapter_details",
-            "chapter_structure",
+            "paragraph_summary",
+            "paragraph_details",
+            "paragraph_structure",
             "cloze"
         ]
         
