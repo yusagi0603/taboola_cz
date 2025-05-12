@@ -57,9 +57,9 @@ class Chat:
             "word_comprehension": 0,
             "grammatical_structure": 1,
             "textual_inference": 2,
-            "chapter_summary": 3,
-            "chapter_details": 4,
-            "chapter_structure": 5
+            "paragraph_summary": 3,
+            "paragraph_details": 4,
+            "paragraph_structure": 5
         }
 
         # For generating question
@@ -69,18 +69,12 @@ class Chat:
             label="Question Type",
             render=False
         )
-        
-        # self.difficulty_dropdown = gr.Dropdown(
-        #     choices=["lower", "same", "higher"],
-        #     value="same",
-        #     label="Difficulty Level",
-        #     render=False
-        # )
+
 
         self.generate_question_button = gr.Button("Generate Question", render=False)
         
         # For updating question
-        self.rewrite_question_index_button = gr.Dropdown(
+        self.rewrite_question_dropdown = gr.Dropdown(
             choices=[],  # Initialize with empty choices
             label="Rewrite Question",
             render=False
@@ -92,13 +86,7 @@ class Chat:
             render=False
         )
 
-        self.update_question_confirm_button = gr.Button("Update Question", render=False)
-
-
-        # Keep the old buttons for reference but don't render them
-        # self.button1 = gr.Button("word_comprehension", elem_id="button1", visible=False, render=False)
-        # self.button2 = gr.Button("grammatical_structure", elem_id="button2", visible=False, render=False)
-        # self.button3 = gr.Button("textual_inference", elem_id="button3", visible=False, render=False)
+        self.rewrite_question_confirm_button = gr.Button("Update Question", render=False)
         
         self.submit_button = gr.Button("產生考題", elem_id="submit_button", render=False)
 
@@ -439,10 +427,9 @@ class Chat:
                     with gr.Row():
 
                         self.question_type_dropdown.render()
-                        # self.difficulty_dropdown.render()
 
                     with gr.Row():
-                        self.rewrite_question_index_button.render()
+                        self.rewrite_question_dropdown.render()
                         self.update_question_dropdown.render()
                                         
                     self.prompt_preview = gr.Textbox(
@@ -456,7 +443,7 @@ class Chat:
                     )
                     
                     self.generate_question_button.render()
-                    self.update_question_confirm_button.render()
+                    self.rewrite_question_confirm_button.render()
                     self.spinner.render()
                     
                 # Right column
@@ -502,12 +489,6 @@ class Chat:
             outputs=[self.prompt_preview]
         )
 
-        # self.difficulty_dropdown.change(
-        #     fn=self.update_prompt_preview,
-        #     inputs=[self.question_type_dropdown, self.textbox],
-        #     outputs=[self.prompt_preview]
-        # )
-
         self.generate_question_button.click(
             fn=lambda: gr.update(visible=True),  # Show spinner
             outputs=self.spinner,
@@ -520,7 +501,7 @@ class Chat:
         ).then(
             fn=self._get_problem_choices,
             inputs=[self.problem_list],
-            outputs=[self.rewrite_question_index_button]
+            outputs=[self.rewrite_question_dropdown]
         ).then(
             fn=lambda: gr.update(visible=False),  # Hide spinner
             outputs=self.spinner,
@@ -528,7 +509,7 @@ class Chat:
         )
 
         # Event handler for updating question
-        self.rewrite_question_index_button.change(
+        self.rewrite_question_dropdown.change(
             fn=None, # No preview update for now, or a dedicated one
             inputs=None,
             outputs=None 
@@ -546,18 +527,18 @@ class Chat:
             # outputs=[self.prompt_preview]
         )
 
-        self.update_question_confirm_button.click(
+        self.rewrite_question_confirm_button.click(
             fn=lambda: gr.update(visible=True),  # Show spinner
             outputs=self.spinner,
             show_progress=False,
         ).then(
             fn=self.update_one_problem,
-            inputs=[self.rewrite_question_index_button, self.update_question_dropdown, self.textbox, self.problem_list],
+            inputs=[self.rewrite_question_dropdown, self.update_question_dropdown, self.textbox, self.problem_list],
             outputs=self.problem_list,
         ).then(
             fn=self._get_problem_choices, # Update choices after modifying problem list
             inputs=[self.problem_list],
-            outputs=[self.rewrite_question_index_button]
+            outputs=[self.rewrite_question_dropdown]
         ).then(
             fn=lambda: gr.update(visible=False),  # Hide spinner
             outputs=self.spinner,
