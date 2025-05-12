@@ -70,12 +70,12 @@ class Chat:
             render=False
         )
         
-        self.difficulty_dropdown = gr.Dropdown(
-            choices=["lower", "same", "higher"],
-            value="same",
-            label="Difficulty Level",
-            render=False
-        )
+        # self.difficulty_dropdown = gr.Dropdown(
+        #     choices=["lower", "same", "higher"],
+        #     value="same",
+        #     label="Difficulty Level",
+        #     render=False
+        # )
 
         self.generate_question_button = gr.Button("Generate Question", render=False)
         
@@ -209,12 +209,11 @@ class Chat:
             return gr.Dataset(samples=next_step_prompt, visible=True)
         return gr.Dataset(samples=[['-']], visible=False)
 
-    def prepare_prompt_template(self, problem_type, difficulty, current_article):
+    def prepare_prompt_template(self, problem_type, current_article):
         """Delegate prompt preparation to the QuestionPromptHandler"""
         return self.prompt_handler.prepare_question_prompt(
             problem_type=problem_type,
             current_article=current_article,
-            difficulty=difficulty
         )
 
     def generate_problem(self, prompt, timeout=60):
@@ -347,7 +346,7 @@ class Chat:
 
         return text
 
-    def create_problem(self, problem_type, difficulty, prompt_preview, current_article, problems, timeout=60):
+    def create_problem(self, problem_type, prompt_preview, problems, timeout=60):
 
         start_time = time.time()
         
@@ -440,7 +439,7 @@ class Chat:
                     with gr.Row():
 
                         self.question_type_dropdown.render()
-                        self.difficulty_dropdown.render()
+                        # self.difficulty_dropdown.render()
 
                     with gr.Row():
                         self.rewrite_question_index_button.render()
@@ -451,8 +450,7 @@ class Chat:
                         lines=10,
                         elem_classes=["fullscreen-editor"],
                         value=self.prepare_prompt_template(
-                                self.question_type_dropdown.value, 
-                                self.difficulty_dropdown.value, 
+                                self.question_type_dropdown.value,
                                 self.textbox.value
                             )
                     )
@@ -500,24 +498,24 @@ class Chat:
         # Event handler for generating question
         self.question_type_dropdown.change(
             fn=self.update_prompt_preview,
-            inputs=[self.question_type_dropdown, self.difficulty_dropdown, self.textbox],
+            inputs=[self.question_type_dropdown, self.textbox],
             outputs=[self.prompt_preview]
         )
 
-        self.difficulty_dropdown.change(
-            fn=self.update_prompt_preview,
-            inputs=[self.question_type_dropdown, self.difficulty_dropdown, self.textbox],
-            outputs=[self.prompt_preview]
-        )
+        # self.difficulty_dropdown.change(
+        #     fn=self.update_prompt_preview,
+        #     inputs=[self.question_type_dropdown, self.textbox],
+        #     outputs=[self.prompt_preview]
+        # )
 
         self.generate_question_button.click(
             fn=lambda: gr.update(visible=True),  # Show spinner
             outputs=self.spinner,
             show_progress=False,
         ).then(
-            fn=lambda problem_type, difficulty, prompt_preview, current_article, problems: 
-                self.create_problem(problem_type, difficulty, prompt_preview, current_article, problems, timeout=30),
-            inputs=[self.question_type_dropdown, self.difficulty_dropdown, self.prompt_preview, self.textbox, self.problem_list],
+            fn=lambda problem_type, prompt_preview, problems: 
+                self.create_problem(problem_type, prompt_preview, problems, timeout=30),
+            inputs=[self.question_type_dropdown, self.prompt_preview, self.problem_list],
             outputs=[self.problem_list],
         ).then(
             fn=self._get_problem_choices,
@@ -574,5 +572,5 @@ class Chat:
 
         return chat_ui  # Return the group for access in the main app 
 
-    def update_prompt_preview(self, question_type, difficulty, current_article):
-        return self.prepare_prompt_template(question_type, difficulty, current_article)
+    def update_prompt_preview(self, question_type, current_article):
+        return self.prepare_prompt_template(question_type, current_article)

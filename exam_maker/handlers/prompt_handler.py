@@ -66,7 +66,7 @@ class PromptHandler:
             csv_files.append(file.stem)
         return csv_files
     
-    def prepare_question_prompt(self, problem_type, current_article, difficulty=None):
+    def prepare_question_prompt(self, problem_type, current_article):
         prompt = self.generate_prompt(
             problem_type,
             csv_name=problem_type
@@ -77,8 +77,6 @@ class PromptHandler:
             "generated_article": current_article
         }
         
-        # if difficulty:
-        #     context["difficulty"] = difficulty
             
         integrated_prompt = self.question_format_prompt.format(**context)
         
