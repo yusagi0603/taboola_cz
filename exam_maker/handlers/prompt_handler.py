@@ -96,5 +96,18 @@ class PromptHandler:
             message=message,
             textbox_content=article_content
         )
+    
+    def prepare_question_update_prompt(self, original_question_text, difficulty_change, current_article):
+        # Construct a prompt like:
+        # "The current article is: {current_article}"
+        # "Rewrite the following question to be {difficulty_change}:"
+        # "{original_question_text}"
+        # "Ensure the output is in the same format (Question:, Options:, Answer:)."
+        prompt = f"Please rewrite the following question to be {difficulty_change}. "\
+                    f"Keep the same general topic and style but adjust the difficulty as requested.\n\n" \
+                    f"Original Question:\n{original_question_text}\n\n" \
+                    f"Contextual Article (if needed for reference):\n{current_article}\n\n" \
+                    f"Provide the rewritten question in the standard format (Question:, Options:, Answer:)."
+        return prompt
 
 
