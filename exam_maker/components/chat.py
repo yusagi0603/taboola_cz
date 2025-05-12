@@ -439,11 +439,7 @@ class Chat:
                     # Move dropdowns and button to left column
                     with gr.Row():
 
-                        self.question_type_dropdown = gr.Dropdown(
-                            choices=["word_comprehension", "grammatical_structure", "textual_inference", "chapter_summary", "chapter_details", "chapter_structure"],
-                            value= "word_comprehension",
-                            label="Question Type"
-                        )
+                        self.question_type_dropdown.render()
                         self.difficulty_dropdown.render()
 
                     with gr.Row():
