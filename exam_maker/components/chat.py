@@ -81,7 +81,6 @@ class Chat:
         
         self.generate_question_button = gr.Button("Generate Question", render=False)
         
-        self.reset_prompt_button = gr.Button("Reset Prompt", render=False)
         # Keep the old buttons for reference but don't render them
         self.button1 = gr.Button("word_comprehension", elem_id="button1", visible=False, render=False)
         self.button2 = gr.Button("grammatical_structure", elem_id="button2", visible=False, render=False)
@@ -407,7 +406,6 @@ class Chat:
                     )
                     
                     self.generate_question_button.render()
-                    self.reset_prompt_button.render()
                     self.spinner.render()
                     
                 # Right column
@@ -480,11 +478,6 @@ class Chat:
             outputs=[]
         )
 
-        self.reset_prompt_button.click(
-            fn=self.reset_prompt_preview,
-            inputs=[self.question_type_dropdown, self.difficulty_dropdown, self.textbox],
-            outputs=[self.prompt_preview]
-        )
 
         self.submit_button.click(
             fn=self._generate_final_exam_doc,
@@ -510,13 +503,3 @@ class Chat:
     def handle_prompt_edit(self, prompt_preview):
         self.user_edited_prompt = prompt_preview
 
-    def reset_prompt_preview(self, question_type, difficulty, current_article):
-        """
-        Resets the prompt preview to the default template.
-        """
-        self.user_edited_prompt = None
-        
-        if question_type == "cloze":
-            marked_article = current_article
-            return self.prepare_prompt_template(question_type, difficulty, marked_article)
-        return self.prepare_prompt_template(question_type, difficulty, current_article)
