@@ -66,7 +66,7 @@ class PromptHandler:
             csv_files.append(file.stem)
         return csv_files
     
-    def prepare_question_prompt(self, problem_type, current_article, difficulty=None):
+    def prepare_question_prompt(self, problem_type, current_article):
         prompt = self.generate_prompt(
             problem_type,
             csv_name=problem_type
@@ -77,8 +77,6 @@ class PromptHandler:
             "generated_article": current_article
         }
         
-        # if difficulty:
-        #     context["difficulty"] = difficulty
             
         integrated_prompt = self.question_format_prompt.format(**context)
         
@@ -96,5 +94,18 @@ class PromptHandler:
             message=message,
             textbox_content=article_content
         )
+    
+    def prepare_question_update_prompt(self, original_question_text, difficulty_change, current_article):
+        # Construct a prompt like:
+        # "The current article is: {current_article}"
+        # "Rewrite the following question to be {difficulty_change}:"
+        # "{original_question_text}"
+        # "Ensure the output is in the same format (Question:, Options:, Answer:)."
+        prompt = f"Please rewrite the following question to be {difficulty_change}. "\
+                    f"Keep the same general topic and style but adjust the difficulty as requested.\n\n" \
+                    f"Original Question:\n{original_question_text}\n\n" \
+                    f"Contextual Article (if needed for reference):\n{current_article}\n\n" \
+                    f"Provide the rewritten question in the standard format (Question:, Options:, Answer:)."
+        return prompt
 
 
