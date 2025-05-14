@@ -284,8 +284,8 @@ class Chat:
         try:
             raw_updated_problem_text = self.generate_problem(update_prompt, timeout=timeout)
             
-            updated_problem_text = self.post_process_question(
-                problem_type=original_problem_type, # Use original type for post-processing
+            updated_problem_text = self.question_formatter.normalize_question_output(
+                # problem_type=original_problem_type, # Use original type for post-processing
                 question_text=raw_updated_problem_text
             )
             
