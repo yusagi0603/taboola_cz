@@ -460,6 +460,7 @@ class Chat:
                         elem_classes=["fullscreen-editor"],
                         value=self.update_prompt_preview(self.question_type_dropdown.value, self.textbox.value)
                     )
+
                     
                     self.generate_question_button.render()
                     self.rewrite_question_confirm_button.render()
@@ -500,7 +501,13 @@ class Chat:
             with gr.Row():
                 download_button = gr.DownloadButton("Download Word Document", visible=False)
                 
-
+        # Add load event to update prompt_preview when interface loads
+        self.textbox.change(
+            fn=self.update_prompt_preview,
+            inputs=[self.question_type_dropdown, self.textbox],
+            outputs=[self.prompt_preview]
+        )
+        
         # Event handler for generating question
         self.question_type_dropdown.change(
             fn=self.update_prompt_preview,
