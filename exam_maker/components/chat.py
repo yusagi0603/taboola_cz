@@ -58,9 +58,9 @@ class Chat:
             "word_comprehension": 0,
             "grammatical_structure": 1,
             "textual_inference": 2,
-            "chapter_summary": 3,
-            "chapter_details": 4,
-            "chapter_structure": 5,
+            "paragraph_summary": 3,
+            "paragraph_details": 4,
+            "paragraph_structure": 5,
             "cloze": 6
         }
 
@@ -459,10 +459,10 @@ class Chat:
                         lines=10,
                         elem_classes=["fullscreen-editor"],
                         value=self.update_prompt_preview(self.question_type_dropdown.value, self.textbox.value)
-                    #     value=self.prepare_prompt_template(
-                    #             self.question_type_dropdown.value,
-                    #             self.textbox.value
-                    #         )
+                        # value=self.prepare_prompt_template(
+                        #         self.question_type_dropdown.value,
+                        #         self.textbox.value
+                        #     )
                     )
                     
                     self.generate_question_button.render()
@@ -600,9 +600,9 @@ class Chat:
         if self.user_edited_prompt is not None:
             return self.user_edited_prompt
             
-        if question_type == "cloze":
-            marked_article = current_article
-            return self.prepare_prompt_template(question_type, marked_article)
+        # if question_type == "cloze":
+        #     marked_article = current_article
+        #     return self.prepare_prompt_template(question_type, marked_article)
         return self.prepare_prompt_template(question_type, current_article)
 
     def handle_prompt_edit(self, prompt_preview):
