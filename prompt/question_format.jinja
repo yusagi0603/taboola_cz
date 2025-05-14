@@ -1,7 +1,12 @@
 Below is an article:
-{generated_article}
+{{ generated_article }}
 
-Based on the article above, {prompt}
+Based on the article above, {{ prompt }}
+
+{% if has_cloze_markers is defined and has_cloze_markers %}
+I've identified the following words marked for cloze tests: {{ marked_words|join(', ') }}
+Please create cloze test questions focusing on these marked words.
+{% endif %}
 
 For each request, focus on a different aspect of the text or test a different skill.
 Please generate DIFFERENT questions for each request.
@@ -18,4 +23,3 @@ Answer: [Correct answer option]
 
 Return your response in JSON format with only the question in the 'current_lesson_plan' field.
 Do not include any explanations, suggestions, or next_step prompts.
-"""

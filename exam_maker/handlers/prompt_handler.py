@@ -4,6 +4,7 @@ import json
 import time
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+import re
 
 class PromptHandler:
     def __init__(self):
@@ -19,20 +20,25 @@ class PromptHandler:
         self.article_revision_path = self.template_dir / "article_revision.jinja"
         self.article_format_path = self.template_dir / "article_format.jinja"
         
-        with open(self.question_format_prompt_path, 'r', encoding='utf-8') as f:
-            self.question_format_prompt = f.read()
-            
-        with open(self.article_revision_path, 'r', encoding='utf-8') as f:
-            self.article_revision_prompt = f.read()
-            
-        with open(self.article_format_path, 'r', encoding='utf-8') as f:
-            self.article_format_prompt = f.read()
-            
-        # self.problem_types = self.get_available_templates()
+        self.article_generation_template = self.env.get_template("article_generation.jinja")
+        self.article_rewrite_template = self.env.get_template("article_rewrite.jinja")
+        self.question_format_template = self.env.get_template("question_format.jinja")
+        self.article_revision_template = self.env.get_template("article_revision.jinja")
+        self.article_format_template = self.env.get_template("article_format.jinja")
+        self.cloze_template = self.env.get_template("cloze.jinja")
+        
+        self.problem_types = [
+            "word_comprehension",
+            "grammatical_structure",
+            "textual_inference",
+            "paragraph_summary",
+            "paragraph_details",
+            "paragraph_structure",
+            "cloze"
+        ]
         
     def _load_csv_data(self, csv_file_name):
         csv_path = self.csv_dir / csv_file_name
-        
         if not csv_path.exists():
             raise FileNotFoundError(f"CSV file not found: {csv_path}")
             
@@ -67,33 +73,64 @@ class PromptHandler:
         return csv_files
     
     def prepare_question_prompt(self, problem_type, current_article):
-        prompt = self.generate_prompt(
-            problem_type,
-            csv_name=problem_type
-        )
-        
         context = {
-            "prompt": prompt,
             "generated_article": current_article
         }
-        
+        if problem_type == "cloze":
+            cloze_markers = re.findall(r'\{([^}]+)\}', str(current_article))
             
-        integrated_prompt = self.question_format_prompt.format(**context)
-        
+            cloze_prompt = self.cloze_template.render()
+            context["prompt"] = cloze_prompt
+            
+            if cloze_markers:
+                context["has_cloze_markers"] = True
+                context["marked_words"] = cloze_markers
+            else:
+                context["has_cloze_markers"] = False
+        else:
+            try:
+                prompt = self.generate_prompt(
+                    problem_type,
+                    csv_name=problem_type
+                )
+                context["prompt"] = prompt
+            except Exception as e:
+                print(f"Error generating prompt for {problem_type}: {str(e)}")
+                context["prompt"] = f"Generate a {problem_type} question based on the article."
+ 
+        integrated_prompt = self.question_format_template.render(**context)
         return integrated_prompt
         
     def prepare_article_revision_prompt(self, article_content, message):
-        return self.article_revision_prompt.format(
-            generated_article=article_content,
-            message=message
-        )
+        context = {
+            "generated_article": article_content,
+            "message": message
+        }
+        integrated_prompt = self.article_revision_template.render(**context)
+        return integrated_prompt
         
     def prepare_article_format_prompt(self, article_content, message):
-        return self.article_format_prompt.format(
-            generated_article=article_content,
-            message=message,
-            textbox_content=article_content
-        )
+        context = {
+            "generated_article": article_content,
+            "message": message,
+            "textbox_content": article_content
+        }
+        integrated_prompt = self.article_format_template.render(**context)
+        return integrated_prompt
+    
+    def extract_cloze_markers(self, article_content):
+        markers = re.findall(r'\{([^}]+)\}', article_content)
+        return markers
+    
+
+    def render_template(self, template_name, context):
+        template = self.env.get_template(f"{template_name}.jinja")
+        return template.render(**context)
+        # return self.article_format_prompt.format(
+        #     generated_article=article_content,
+        #     message=message,
+        #     textbox_content=article_content
+        # )
     
     def prepare_question_update_prompt(self, original_question_text, difficulty_change, current_article):
         # Construct a prompt like:

@@ -19,6 +19,7 @@ class Chat:
         self.assistant_id = assistant_id
         self.chat_ui = None  # Will store reference to the chat UI group
         self.prompt_handler = PromptHandler()
+        self.user_edited_prompt = None 
         self.exam_paper_handler = ExamPaperHandler()
         self.question_formatter = QuestionFormatter()
         self._define_components()
@@ -62,7 +63,8 @@ class Chat:
             "textual_inference": 2,
             "paragraph_summary": 3,
             "paragraph_details": 4,
-            "paragraph_structure": 5
+            "paragraph_structure": 5,
+            "cloze": 6
         }
 
         # For generating question
@@ -282,8 +284,8 @@ class Chat:
         try:
             raw_updated_problem_text = self.generate_problem(update_prompt, timeout=timeout)
             
-            updated_problem_text = self.post_process_question(
-                problem_type=original_problem_type, # Use original type for post-processing
+            updated_problem_text = self.question_formatter.normalize_question_output(
+                # problem_type=original_problem_type, # Use original type for post-processing
                 question_text=raw_updated_problem_text
             )
             
@@ -322,11 +324,9 @@ class Chat:
                         label="Prompt Preview",
                         lines=10,
                         elem_classes=["fullscreen-editor"],
-                        value=self.prepare_prompt_template(
-                                self.question_type_dropdown.value,
-                                self.textbox.value
-                            )
+                        value=self.update_prompt_preview(self.question_type_dropdown.value, self.textbox.value)
                     )
+
                     
                     self.generate_question_button.render()
                     self.rewrite_question_confirm_button.render()
@@ -367,7 +367,13 @@ class Chat:
             with gr.Row():
                 download_button = gr.DownloadButton("Download Word Document", visible=False)
                 
-
+        # Add load event to update prompt_preview when interface loads
+        self.textbox.change(
+            fn=self.update_prompt_preview,
+            inputs=[self.question_type_dropdown, self.textbox],
+            outputs=[self.prompt_preview]
+        )
+        
         # Event handler for generating question
         self.question_type_dropdown.change(
             fn=self.update_prompt_preview,
@@ -430,6 +436,13 @@ class Chat:
             outputs=self.spinner,
             show_progress=False,
         )
+        
+        self.prompt_preview.change(
+            fn=self.handle_prompt_edit,
+            inputs=[self.prompt_preview],
+            outputs=[]
+        )
+
 
         self.submit_button.click(
             fn=lambda article, problems: self.exam_paper_handler.generate_final_exam_doc(article, problems)[0],
@@ -443,4 +456,34 @@ class Chat:
         return chat_ui  # Return the group for access in the main app
 
     def update_prompt_preview(self, question_type, current_article):
+        """
+        Updates the prompt preview based on question type.
+        If the user has edited the prompt, we preserve their edits.
+        """
+
+        if self.user_edited_prompt is not None and not hasattr(self, '_last_question_type'):
+            # First time initialization
+            self._last_question_type = question_type
+            
+        if hasattr(self, '_last_question_type') and question_type != self._last_question_type:
+            # Question type changed, reset edited prompt
+            self.user_edited_prompt = None
+            self._last_question_type = question_type
+        
+        if self.user_edited_prompt is not None:
+            return self.user_edited_prompt
+            
+        # if question_type == "cloze":
+        #     marked_article = current_article
+        #     return self.prepare_prompt_template(question_type, marked_article)
+     
         return self.prepare_prompt_template(question_type, current_article)
+
+    def handle_prompt_edit(self, prompt_preview):
+        self.user_edited_prompt = prompt_preview
+        
+    def reset_prompt_edit(self, question_type):
+        """Reset user edited prompt when question type changes"""
+        self.user_edited_prompt = None
+        return self.update_prompt_preview(question_type, self.textbox.value)
+
