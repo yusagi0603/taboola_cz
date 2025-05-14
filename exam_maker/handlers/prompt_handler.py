@@ -77,7 +77,7 @@ class PromptHandler:
             "generated_article": current_article
         }
         if problem_type == "cloze":
-            cloze_markers = re.findall(r'\{([^}]+)\}', current_article)
+            cloze_markers = re.findall(r'\{([^}]+)\}', str(current_article))
             
             cloze_prompt = self.cloze_template.render()
             context["prompt"] = cloze_prompt

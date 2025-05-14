@@ -459,10 +459,6 @@ class Chat:
                         lines=10,
                         elem_classes=["fullscreen-editor"],
                         value=self.update_prompt_preview(self.question_type_dropdown.value, self.textbox.value)
-                        # value=self.prepare_prompt_template(
-                        #         self.question_type_dropdown.value,
-                        #         self.textbox.value
-                        #     )
                     )
                     
                     self.generate_question_button.render()
@@ -507,8 +503,8 @@ class Chat:
 
         # Event handler for generating question
         self.question_type_dropdown.change(
-            fn=self.reset_prompt_edit,
-            inputs=[self.question_type_dropdown],
+            fn=self.update_prompt_preview,
+            inputs=[self.question_type_dropdown, self.textbox],
             outputs=[self.prompt_preview]
         )
 
@@ -588,6 +584,7 @@ class Chat:
         Updates the prompt preview based on question type.
         If the user has edited the prompt, we preserve their edits.
         """
+
         if self.user_edited_prompt is not None and not hasattr(self, '_last_question_type'):
             # First time initialization
             self._last_question_type = question_type
@@ -603,6 +600,7 @@ class Chat:
         # if question_type == "cloze":
         #     marked_article = current_article
         #     return self.prepare_prompt_template(question_type, marked_article)
+     
         return self.prepare_prompt_template(question_type, current_article)
 
     def handle_prompt_edit(self, prompt_preview):
