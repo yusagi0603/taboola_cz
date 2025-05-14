@@ -39,7 +39,6 @@ class PromptHandler:
         
     def _load_csv_data(self, csv_file_name):
         csv_path = self.csv_dir / csv_file_name
-        
         if not csv_path.exists():
             raise FileNotFoundError(f"CSV file not found: {csv_path}")
             
@@ -73,11 +72,10 @@ class PromptHandler:
             csv_files.append(file.stem)
         return csv_files
     
-    def prepare_question_prompt(self, problem_type, current_article, difficulty=None):
+    def prepare_question_prompt(self, problem_type, current_article):
         context = {
             "generated_article": current_article
         }
-        
         if problem_type == "cloze":
             cloze_markers = re.findall(r'\{([^}]+)\}', current_article)
             
@@ -99,12 +97,8 @@ class PromptHandler:
             except Exception as e:
                 print(f"Error generating prompt for {problem_type}: {str(e)}")
                 context["prompt"] = f"Generate a {problem_type} question based on the article."
-        
-        # if difficulty:
-        #     context["difficulty"] = difficulty
-        
+ 
         integrated_prompt = self.question_format_template.render(**context)
-        
         return integrated_prompt
         
     def prepare_article_revision_prompt(self, article_content, message):
@@ -132,5 +126,23 @@ class PromptHandler:
     def render_template(self, template_name, context):
         template = self.env.get_template(f"{template_name}.jinja")
         return template.render(**context)
+        # return self.article_format_prompt.format(
+        #     generated_article=article_content,
+        #     message=message,
+        #     textbox_content=article_content
+        # )
+    
+    def prepare_question_update_prompt(self, original_question_text, difficulty_change, current_article):
+        # Construct a prompt like:
+        # "The current article is: {current_article}"
+        # "Rewrite the following question to be {difficulty_change}:"
+        # "{original_question_text}"
+        # "Ensure the output is in the same format (Question:, Options:, Answer:)."
+        prompt = f"Please rewrite the following question to be {difficulty_change}. "\
+                    f"Keep the same general topic and style but adjust the difficulty as requested.\n\n" \
+                    f"Original Question:\n{original_question_text}\n\n" \
+                    f"Contextual Article (if needed for reference):\n{current_article}\n\n" \
+                    f"Provide the rewritten question in the standard format (Question:, Options:, Answer:)."
+        return prompt
 
 
