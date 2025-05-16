@@ -11,34 +11,6 @@ from exam_maker.handlers.exam_paper_handler import ExamPaperHandler
 from exam_maker.handlers.question_formatter import QuestionFormatter, QUESTION_SCHEMA
 from exam_maker.config import ASSISTANT_MODEL
 
-# Define the question schema
-QUESTION_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "Question": {
-            "type": "string",
-            "description": "The question text"
-        },
-        "Options": {
-            "type": "object",
-            "properties": {
-                "A": {"type": "string"},
-                "B": {"type": "string"},
-                "C": {"type": "string"},
-                "D": {"type": "string"}
-            },
-            "required": ["A", "B", "C", "D"],
-            "additionalProperties": False
-        },
-        "Answer": {
-            "type": "string",
-            "enum": ["A", "B", "C", "D"],
-            "description": "The correct answer option"
-        }
-    },
-    "required": ["Question", "Options", "Answer"],
-    "additionalProperties": False
-}
 
 CONVERSATION_STARTER = "Click this button to make the passage longer"
 
