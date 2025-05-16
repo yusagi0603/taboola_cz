@@ -11,15 +11,17 @@ Please create cloze test questions focusing on these marked words.
 For each request, focus on a different aspect of the text or test a different skill.
 Please generate DIFFERENT questions for each request.
 
-Follow this EXACT format for your response:
+ALWAYS respond with valid JSON **only**, in exactly this structure:
 
-Question: [question content]
-Options:
-A) [Option A]
-B) [Option B]
-C) [Option C]
-D) [Option D]
-Answer: [Correct answer option]
+{
+  "Question": "string",
+  "Options": {
+    "A": "string",
+    "B": "string",
+    "C": "string",
+    "D": "string"
+  },
+  "Answer": "A"
+}
 
-Return your response in JSON format with only the question in the 'current_lesson_plan' field.
 Do not include any explanations, suggestions, or next_step prompts.
