@@ -378,14 +378,17 @@ class Chat:
             inputs=[self.question_type_dropdown, self.chatbot],
             outputs=[self.chatbot]
         ).then(
-            fn=self._get_problem_choices,
-            inputs=[self.problem_list],
-            outputs=[self.rewrite_question_dropdown]
-        ).then(
             fn=lambda: gr.update(visible=False),  # Hide spinner
             outputs=self.spinner,
             show_progress=False,
         )
+
+        self.problem_list.change(
+            fn=self._get_problem_choices,
+            inputs=[self.problem_list],
+            outputs=[self.rewrite_question_dropdown]
+        )
+
 
         # Event handler for updating question
         self.rewrite_question_dropdown.change(
@@ -411,11 +414,23 @@ class Chat:
             outputs=self.spinner,
             show_progress=False,
         ).then(
+            fn=lambda idx, diff, history: gr.update(
+                value=history + [{"role": "user", "content": f"Help me update question {idx} to be {diff}."}]
+            ),
+            inputs=[self.rewrite_question_dropdown, self.update_question_dropdown, self.chatbot],
+            outputs=[self.chatbot]
+        ).then(
             fn=self.update_one_problem,
             inputs=[self.rewrite_question_dropdown, self.update_question_dropdown, self.textbox, self.problem_list],
-            outputs=self.problem_list,
+            outputs=[self.problem_list],
         ).then(
-            fn=self._get_problem_choices, # Update choices after modifying problem list
+            fn=lambda idx, diff, history: gr.update(
+                value=history + [{"role": "assistant", "content": f"Finished updating question {idx} to be {diff}."}]
+            ),
+            inputs=[self.rewrite_question_dropdown, self.update_question_dropdown, self.chatbot],
+            outputs=[self.chatbot]
+        ).then(
+            fn=self._get_problem_choices,  # Update choices after modifying problem list
             inputs=[self.problem_list],
             outputs=[self.rewrite_question_dropdown]
         ).then(
