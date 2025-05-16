@@ -8,8 +8,37 @@ from json_repair import repair_json
 from exam_maker.logger import app_logger
 from exam_maker.handlers.prompt_handler import PromptHandler
 from exam_maker.handlers.exam_paper_handler import ExamPaperHandler
-from exam_maker.handlers.question_formatter import QuestionFormatter
+from exam_maker.handlers.question_formatter import QuestionFormatter, QUESTION_SCHEMA
+from exam_maker.config import ASSISTANT_MODEL
 
+# Define the question schema
+QUESTION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "Question": {
+            "type": "string",
+            "description": "The question text"
+        },
+        "Options": {
+            "type": "object",
+            "properties": {
+                "A": {"type": "string"},
+                "B": {"type": "string"},
+                "C": {"type": "string"},
+                "D": {"type": "string"}
+            },
+            "required": ["A", "B", "C", "D"],
+            "additionalProperties": False
+        },
+        "Answer": {
+            "type": "string",
+            "enum": ["A", "B", "C", "D"],
+            "description": "The correct answer option"
+        }
+    },
+    "required": ["Question", "Options", "Answer"],
+    "additionalProperties": False
+}
 
 CONVERSATION_STARTER = "Click this button to make the passage longer"
 
@@ -192,28 +221,27 @@ class Chat:
         
         # Start timing
         start_time = time.time()
-
-        thread = self.client.beta.threads.create()
-        self.client.beta.threads.messages.create(
-            thread_id=thread.id,
-            role="user",
-            content=prompt,
-        )
-        
-        full_response = "" 
         
         try:
-            with self.client.beta.threads.runs.stream(
-                thread_id=thread.id,
-                assistant_id=self.assistant_id
-            ) as stream:
-                for text_delta in stream.text_deltas:
-                    # Check if it exceeded the timeout
-                    if time.time() - start_time > timeout:
-                        print(f"Generation timed out after {timeout} seconds")
-                        break
-                        
-                    full_response += text_delta
+            # Use chat completion API
+            response = self.client.chat.completions.create(
+                model=ASSISTANT_MODEL,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {          # ← mandatory wrapper
+                        "name": "MultipleChoiceQuestion",   # any identifier you like
+                        "strict": True,                     # optional, but enables token-level validation
+                        "schema": QUESTION_SCHEMA           # your schema lives here
+                    },
+                }
+            )
+            
+            # Get the response content
+            full_response = response.choices[0].message.content
+            
         except Exception as e:
             self.logger.error(f"Error during problem generation: {str(e)}")
             return f"Error generating problem: {str(e)}"
