@@ -212,36 +212,11 @@ class Chat:
             )
             
             # Get the response content
-            full_response = response.choices[0].message.content
+            return response.choices[0].message.content
             
         except Exception as e:
             self.logger.error(f"Error during problem generation: {str(e)}")
             return f"Error generating problem: {str(e)}"
-        
-        # Try to extract question content from JSON if present
-        try:
-            json_objects = []
-            start_positions = [m.start() for m in re.finditer(r'{\s*"', full_response)]
-            
-            for start in start_positions:
-                try:
-                    json_str = full_response[start:]
-                    parsed = json.loads(json_str)
-                    json_objects.append(parsed)
-                except:
-                    pass
-
-            if json_objects:
-                last_json = json_objects[-1]
-                question_content = last_json.get('current_lesson_plan', '')
-                if question_content:
-                    return question_content
-        except Exception as e:
-            self.logger.error(f"Error parsing JSON: {str(e)}")
-        
-        # If we couldn't extract JSON or no question_content was found,
-        # return the full raw response for post-processing
-        return full_response
 
     def create_problem(self, problem_type, prompt_preview, problems, timeout=60):
         start_time = time.time()
