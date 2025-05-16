@@ -361,10 +361,22 @@ class Chat:
             outputs=self.spinner,
             show_progress=False,
         ).then(
-            fn=lambda problem_type, prompt_preview, problems: 
+            fn=lambda problem_type, history: gr.update(
+                value=history + [{"role": "user", "content": f"Help me generate a {problem_type} question."}]
+            ),
+            inputs=[self.question_type_dropdown, self.chatbot],
+            outputs=[self.chatbot]
+        ).then(
+            fn=lambda problem_type, prompt_preview, problems:
                 self.create_problem(problem_type, prompt_preview, problems, timeout=30),
             inputs=[self.question_type_dropdown, self.prompt_preview, self.problem_list],
             outputs=[self.problem_list],
+        ).then(
+            fn=lambda problem_type, history: gr.update(
+                value=history + [{"role": "assistant", "content": f"Finished generating {problem_type} question."}]
+            ),
+            inputs=[self.question_type_dropdown, self.chatbot],
+            outputs=[self.chatbot]
         ).then(
             fn=self._get_problem_choices,
             inputs=[self.problem_list],
