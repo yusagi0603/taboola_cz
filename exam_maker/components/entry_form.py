@@ -119,12 +119,26 @@ class EntryForm:
             app_logger.error(f"Error loading vocabulary: {e}")
             return "Error loading vocabulary list"
 
-    def generate_initial_content(self, grade_values, unit_values, topic_values, grammar_values, input_article_value, textbook_vocab_values, additional_vocab_values):
+    def generate_initial_content(
+            self, grade_values, unit_values, topic_values, grammar_values, 
+            input_article_value, textbook_vocab_values, additional_vocab_values
+        ):
         # Combine textbook vocabulary with additional vocabulary
+        PART_OF_SPEECH_MAPPING = {
+            "名詞": "noun",
+            "動詞": "verb",
+            "形容詞": "adjective",
+            "副詞": "adverb",
+            "介系詞": "preposition",
+            "連接詞": "conjunction",
+            "助詞": "particle"
+        }
+        mapped_grammar_values = [*map(lambda x: PART_OF_SPEECH_MAPPING.get(x), grammar_values)]
+
         generated_article = call_llm_to_generate_article(
             grade_values=grade_values,
             topic_values=topic_values,
-            grammar_values=grammar_values,
+            grammar_values=mapped_grammar_values,
             unit_values=unit_values,
             input_article_value=input_article_value,
             textbook_vocab_values=textbook_vocab_values,
