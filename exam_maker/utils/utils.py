@@ -1,68 +1,14 @@
-from pathlib import Path
+import gradio as gr
 
 from exam_maker.config import (
     ASSISTANT_MODEL,
     CORRECT_PASSWORD,
 )
-
 from exam_maker.logger import app_logger
 from exam_maker.client import llm_client
 from exam_maker.handlers.prompt_handler import PromptHandler
 
-import gradio as gr
-
 prompt_handler = PromptHandler()
-
-# spent 4m 50s downloading all 175 files
-# def embed_from_drive(folder_id):
-#   # auth.authenticate_user()
-#   gauth = GoogleAuth()
-#   gauth.credentials = GoogleCredentials.get_application_default()
-#   drive = GoogleDrive(gauth)
-
-#   # Get all files in '定稿專案' folder: https://drive.google.com/drive/folders/1dlsf5BNjNczzUYKPZvYXd2mLW21QCLUK?usp=drive_link
-#   file_list = drive.ListFile({'q': f"'{folder_id}' in parents and trashed=false"}).GetList()
-
-#   # Download files to local (`/content/`), since file_streams don't recieve google docs
-#   local_file_paths = []
-#   for file1 in file_list:
-#       print('Processing file title: %s, id: %s' % (file1['title'], file1['id']))
-#       local_path = f"/content/{file1['title']}.docx"
-
-#       if 'exportLinks' in file1:
-#           if 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' in file1['exportLinks']:
-#               # update type if needed (application/vnd.openxmlformats-officedocument.wordprocessingml.document == .docx)
-#               export_url = file1['exportLinks']['application/vnd.openxmlformats-officedocument.wordprocessingml.document']
-#               print(f"Downloading as Word document: {file1['title']}")
-#               downloaded_file = drive.CreateFile({'id': file1['id']})
-#               downloaded_file.GetContentFile(local_path, mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-#               local_file_paths.append(local_path)
-#           else:
-#               print(f"No Word export available for: {file1['title']}")
-#       else:
-#           print(f"Skipping non-Google Docs file: {file1['title']}")
-
-#   for path in local_file_paths:
-#       print(f"Downloaded file: {path}")
-
-#   file_streams = [open(path, "rb") for path in local_file_paths]
-#   return file_streams
-
-
-# Embed files (downloaded from drive folder)
-# def get_vector_store_id(file_streams):
-#   vector_store = client.beta.vector_stores.create(name=VECTOR_STORE_NAME)
-
-# #   # spent 51s batching all 175 files
-# #   file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
-# #     vector_store_id=vector_store.id, files=file_streams
-# #   )
-
-# #   print("file_batch status",file_batch.status)
-# #   print("file_counts",file_batch.file_counts)
-
-#   return vector_store.id
-
 
 
 def check_password(input_password):
@@ -103,10 +49,10 @@ def call_llm_to_generate_article(
     if input_article_value:
         context["input_article_value"] = input_article_value
         user_prompt = prompt_handler.render_template("article_rewrite", context)
-        app_logger.info("Rewriting article with input")
+        app_logger.info("Rewriting article with prompt: \n" + user_prompt)
     else:
         user_prompt = prompt_handler.render_template("article_generation", context)
-        app_logger.info("Generating article without input")
+        app_logger.info("Generating article with prompt: \n" + user_prompt) 
 
     generated_article = _call_llm_with_prompt(
         system_prompt=None, 
