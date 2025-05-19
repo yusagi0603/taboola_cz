@@ -212,11 +212,34 @@ class Chat:
             )
             
             # Get the response content
-            return response.choices[0].message.content
+            full_response = response.choices[0].message.content
             
         except Exception as e:
             self.logger.error(f"Error during problem generation: {str(e)}")
             return f"Error generating problem: {str(e)}"
+        
+        try:
+            json_objects = []
+            start_positions = [m.start() for m in re.finditer(r'{\s*"', full_response)]
+            
+            for start in start_positions:
+                try:
+                    json_str = full_response[start:]
+                    parsed = json.loads(json_str)
+                    json_objects.append(parsed)
+                except:
+                    pass
+
+            if json_objects:
+                last_json = json_objects[-1]
+                question_content = last_json.get('current_lesson_plan', '')
+                if question_content:
+                    return question_content
+        except Exception as e:
+            self.logger.error(f"Error parsing JSON: {str(e)}")
+        
+
+        return full_response
 
     def create_problem(self, problem_type, prompt_preview, problems, timeout=60):
         start_time = time.time()
@@ -287,24 +310,23 @@ class Chat:
                     self.prompt_input.render()
                     self.hidden_list.render()
                     
-                    # Move dropdowns and button to left column
-                    with gr.Row():
-                        self.question_type_dropdown.render()
-
-                    with gr.Row():
-                        self.rewrite_question_dropdown.render()
-                        self.update_question_dropdown.render()
-                                        
-                    self.prompt_preview = gr.Textbox(
-                        label="Prompt Preview",
-                        lines=10,
-                        elem_classes=["fullscreen-editor"],
-                        value=self.update_prompt_preview(self.question_type_dropdown.value, self.textbox.value)
-                    )
-
+                    with gr.Tabs():
+                        with gr.Tab("Generate Question"):
+                            self.question_type_dropdown.render()
+                            self.prompt_preview = gr.Textbox(
+                                label="Prompt Preview",
+                                lines=10,
+                                elem_classes=["fullscreen-editor"],
+                                value=self.update_prompt_preview(self.question_type_dropdown.value, self.textbox.value)
+                            )
+                            self.generate_question_button.render()
+                        
+                        with gr.Tab("Update Question"):
+                            with gr.Row():
+                                self.rewrite_question_dropdown.render()
+                                self.update_question_dropdown.render()
+                            self.rewrite_question_confirm_button.render()
                     
-                    self.generate_question_button.render()
-                    self.rewrite_question_confirm_button.render()
                     self.spinner.render()
                     
                 # Right column
@@ -326,7 +348,6 @@ class Chat:
                                 elem_classes=["fullscreen-editor"]
                             )
 
-            # Move ChatInterface outside of the columns to avoid duplicate rendering
             gr.ChatInterface(
                 self._handle_response,
                 chatbot=self.chatbot,
@@ -361,52 +382,31 @@ class Chat:
             outputs=self.spinner,
             show_progress=False,
         ).then(
-            fn=lambda problem_type, history: gr.update(
-                value=history + [{"role": "user", "content": f"Help me generate a {problem_type} question."}]
-            ),
-            inputs=[self.question_type_dropdown, self.chatbot],
-            outputs=[self.chatbot]
-        ).then(
-            fn=lambda problem_type, prompt_preview, problems:
+            fn=lambda problem_type, prompt_preview, problems: 
                 self.create_problem(problem_type, prompt_preview, problems, timeout=30),
             inputs=[self.question_type_dropdown, self.prompt_preview, self.problem_list],
             outputs=[self.problem_list],
         ).then(
-            fn=lambda problem_type, history: gr.update(
-                value=history + [{"role": "assistant", "content": f"Finished generating {problem_type} question."}]
-            ),
-            inputs=[self.question_type_dropdown, self.chatbot],
-            outputs=[self.chatbot]
+            fn=self._get_problem_choices,
+            inputs=[self.problem_list],
+            outputs=[self.rewrite_question_dropdown]
         ).then(
             fn=lambda: gr.update(visible=False),  # Hide spinner
             outputs=self.spinner,
             show_progress=False,
         )
 
-        self.problem_list.change(
-            fn=self._get_problem_choices,
-            inputs=[self.problem_list],
-            outputs=[self.rewrite_question_dropdown]
-        )
-
-
         # Event handler for updating question
         self.rewrite_question_dropdown.change(
             fn=None, # No preview update for now, or a dedicated one
             inputs=None,
             outputs=None 
-            # fn=self.update_prompt_preview, 
-            # inputs=[self.question_type_dropdown, self.difficulty_dropdown, self.textbox],
-            # outputs=[self.prompt_preview]
         )
 
         self.update_question_dropdown.change(
             fn=None, # No preview update for now, or a dedicated one
             inputs=None,
             outputs=None
-            # fn=self.update_prompt_preview,
-            # inputs=[self.question_type_dropdown, self.difficulty_dropdown, self.textbox],
-            # outputs=[self.prompt_preview]
         )
 
         self.rewrite_question_confirm_button.click(
@@ -414,23 +414,11 @@ class Chat:
             outputs=self.spinner,
             show_progress=False,
         ).then(
-            fn=lambda idx, diff, history: gr.update(
-                value=history + [{"role": "user", "content": f"Help me update question {idx} to be {diff}."}]
-            ),
-            inputs=[self.rewrite_question_dropdown, self.update_question_dropdown, self.chatbot],
-            outputs=[self.chatbot]
-        ).then(
             fn=self.update_one_problem,
             inputs=[self.rewrite_question_dropdown, self.update_question_dropdown, self.textbox, self.problem_list],
-            outputs=[self.problem_list],
+            outputs=self.problem_list,
         ).then(
-            fn=lambda idx, diff, history: gr.update(
-                value=history + [{"role": "assistant", "content": f"Finished updating question {idx} to be {diff}."}]
-            ),
-            inputs=[self.rewrite_question_dropdown, self.update_question_dropdown, self.chatbot],
-            outputs=[self.chatbot]
-        ).then(
-            fn=self._get_problem_choices,  # Update choices after modifying problem list
+            fn=self._get_problem_choices, # Update choices after modifying problem list
             inputs=[self.problem_list],
             outputs=[self.rewrite_question_dropdown]
         ).then(
