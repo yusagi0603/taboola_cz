@@ -19,7 +19,7 @@ class ExamPaperHandler:
         """
         # Compose the full exam content
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        doc_file_name = f"英文考題 - {timestamp}"
+        doc_file_name = f"英文考題 - {timestamp}.docx"
         
         # Return the exam content as a downloadable document
         question_info_tuple = [("文章", article_content)]
