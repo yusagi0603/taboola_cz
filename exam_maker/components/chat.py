@@ -287,24 +287,23 @@ class Chat:
                     self.prompt_input.render()
                     self.hidden_list.render()
                     
-                    # Move dropdowns and button to left column
-                    with gr.Row():
-                        self.question_type_dropdown.render()
+                    with gr.Tabs():
+                        with gr.Tab("Generate Question"):
+                            self.question_type_dropdown.render()
+                            self.prompt_preview = gr.Textbox(
+                                label="Prompt Preview",
+                                lines=10,
+                                elem_classes=["fullscreen-editor"],
+                                value=self.update_prompt_preview(self.question_type_dropdown.value, self.textbox.value)
+                            )
+                            self.generate_question_button.render()
 
-                    with gr.Row():
-                        self.rewrite_question_dropdown.render()
-                        self.update_question_dropdown.render()
-                                        
-                    self.prompt_preview = gr.Textbox(
-                        label="Prompt Preview",
-                        lines=10,
-                        elem_classes=["fullscreen-editor"],
-                        value=self.update_prompt_preview(self.question_type_dropdown.value, self.textbox.value)
-                    )
-
+                        with gr.Tab("Update Question"):
+                            with gr.Row():
+                                self.rewrite_question_dropdown.render()
+                                self.update_question_dropdown.render()
+                            self.rewrite_question_confirm_button.render()
                     
-                    self.generate_question_button.render()
-                    self.rewrite_question_confirm_button.render()
                     self.spinner.render()
                     
                 # Right column
@@ -488,4 +487,3 @@ class Chat:
         """Reset user edited prompt when question type changes"""
         self.user_edited_prompt = None
         return self.update_prompt_preview(question_type, self.textbox.value)
-
