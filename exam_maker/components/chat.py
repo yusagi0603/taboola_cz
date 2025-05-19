@@ -297,7 +297,7 @@ class Chat:
                                 value=self.update_prompt_preview(self.question_type_dropdown.value, self.textbox.value)
                             )
                             self.generate_question_button.render()
-                        
+
                         with gr.Tab("Update Question"):
                             with gr.Row():
                                 self.rewrite_question_dropdown.render()
@@ -325,6 +325,7 @@ class Chat:
                                 elem_classes=["fullscreen-editor"]
                             )
 
+            # Move ChatInterface outside of the columns to avoid duplicate rendering
             gr.ChatInterface(
                 self._handle_response,
                 chatbot=self.chatbot,
@@ -359,31 +360,52 @@ class Chat:
             outputs=self.spinner,
             show_progress=False,
         ).then(
-            fn=lambda problem_type, prompt_preview, problems: 
+            fn=lambda problem_type, history: gr.update(
+                value=history + [{"role": "user", "content": f"Help me generate a {problem_type} question."}]
+            ),
+            inputs=[self.question_type_dropdown, self.chatbot],
+            outputs=[self.chatbot]
+        ).then(
+            fn=lambda problem_type, prompt_preview, problems:
                 self.create_problem(problem_type, prompt_preview, problems, timeout=30),
             inputs=[self.question_type_dropdown, self.prompt_preview, self.problem_list],
             outputs=[self.problem_list],
         ).then(
-            fn=self._get_problem_choices,
-            inputs=[self.problem_list],
-            outputs=[self.rewrite_question_dropdown]
+            fn=lambda problem_type, history: gr.update(
+                value=history + [{"role": "assistant", "content": f"Finished generating {problem_type} question."}]
+            ),
+            inputs=[self.question_type_dropdown, self.chatbot],
+            outputs=[self.chatbot]
         ).then(
             fn=lambda: gr.update(visible=False),  # Hide spinner
             outputs=self.spinner,
             show_progress=False,
         )
 
+        self.problem_list.change(
+            fn=self._get_problem_choices,
+            inputs=[self.problem_list],
+            outputs=[self.rewrite_question_dropdown]
+        )
+
+
         # Event handler for updating question
         self.rewrite_question_dropdown.change(
             fn=None, # No preview update for now, or a dedicated one
             inputs=None,
             outputs=None 
+            # fn=self.update_prompt_preview, 
+            # inputs=[self.question_type_dropdown, self.difficulty_dropdown, self.textbox],
+            # outputs=[self.prompt_preview]
         )
 
         self.update_question_dropdown.change(
             fn=None, # No preview update for now, or a dedicated one
             inputs=None,
             outputs=None
+            # fn=self.update_prompt_preview,
+            # inputs=[self.question_type_dropdown, self.difficulty_dropdown, self.textbox],
+            # outputs=[self.prompt_preview]
         )
 
         self.rewrite_question_confirm_button.click(
@@ -391,11 +413,23 @@ class Chat:
             outputs=self.spinner,
             show_progress=False,
         ).then(
+            fn=lambda idx, diff, history: gr.update(
+                value=history + [{"role": "user", "content": f"Help me update question {idx} to be {diff}."}]
+            ),
+            inputs=[self.rewrite_question_dropdown, self.update_question_dropdown, self.chatbot],
+            outputs=[self.chatbot]
+        ).then(
             fn=self.update_one_problem,
             inputs=[self.rewrite_question_dropdown, self.update_question_dropdown, self.textbox, self.problem_list],
-            outputs=self.problem_list,
+            outputs=[self.problem_list],
         ).then(
-            fn=self._get_problem_choices, # Update choices after modifying problem list
+            fn=lambda idx, diff, history: gr.update(
+                value=history + [{"role": "assistant", "content": f"Finished updating question {idx} to be {diff}."}]
+            ),
+            inputs=[self.rewrite_question_dropdown, self.update_question_dropdown, self.chatbot],
+            outputs=[self.chatbot]
+        ).then(
+            fn=self._get_problem_choices,  # Update choices after modifying problem list
             inputs=[self.problem_list],
             outputs=[self.rewrite_question_dropdown]
         ).then(
@@ -453,4 +487,3 @@ class Chat:
         """Reset user edited prompt when question type changes"""
         self.user_edited_prompt = None
         return self.update_prompt_preview(question_type, self.textbox.value)
-
