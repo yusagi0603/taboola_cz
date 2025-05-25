@@ -47,7 +47,7 @@ with gr.Blocks(css=custom_css) as demo:
     ).then(
         fn=entry_form.generate_initial_content,
         inputs=[entry_form.grade, entry_form.unit, entry_form.topic, entry_form.grammar, entry_form.input_article, entry_form.textbook_vocab_list, entry_form.additional_vocab_list],
-        outputs=[chat.textbox, chat_ui, entry_form_ui],
+        outputs=[chat.textbox, chat_ui, entry_form_ui, chat.token_summary],
     ).then(
         fn=lambda: gr.update(visible=False),  # Hide loading spinner when done
         outputs=entry_form.spinner,
@@ -65,6 +65,12 @@ with gr.Blocks(css=custom_css) as demo:
         password.check_password,
         inputs=password_input,
         outputs=[password_popup, main_ui, error_message]
+    )
+
+    # Initialize token summary on demo load
+    demo.load(
+        fn=chat.update_token_summary,
+        outputs=chat.token_summary
     )
 
 demo.launch(share=True, show_error=True)
