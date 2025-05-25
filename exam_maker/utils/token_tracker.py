@@ -125,6 +125,13 @@ class TokenTracker:
         
         return filepath
 
+    def reset_session(self):
+        """Reset token tracking for a new session"""
+        self.usage_history.clear()
+        self.session_total_tokens = 0
+        self.session_total_cost = 0.0
+        app_logger.info("Token tracker reset for new session")
+
 
 # Global token tracker instance
 token_tracker = TokenTracker() 

@@ -8,6 +8,7 @@ import gradio as gr
 from exam_maker.components.chat import Chat
 from exam_maker.components.entry_form import EntryForm
 from exam_maker.components.password import Password
+from exam_maker.utils.token_tracker import token_tracker
 
 from exam_maker.config import (
     ASSISTANT_ID
@@ -69,7 +70,7 @@ with gr.Blocks(css=custom_css) as demo:
 
     # Initialize token summary on demo load
     demo.load(
-        fn=chat.update_token_summary,
+        fn=lambda: (token_tracker.reset_session(), chat.update_token_summary())[1],  # Reset tracker and return summary
         outputs=chat.token_summary
     )
 
