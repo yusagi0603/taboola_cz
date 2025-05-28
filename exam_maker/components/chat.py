@@ -20,7 +20,6 @@ class Chat:
         self.assistant_id = assistant_id
         self.chat_ui = None  # Will store reference to the chat UI group
         self.prompt_handler = PromptHandler()
-        self.user_edited_prompt = None 
         self.exam_paper_handler = ExamPaperHandler()
         self.question_formatter = QuestionFormatter()
         self._define_components()
@@ -173,14 +172,6 @@ class Chat:
 
         yield suggestion, current_lesson_plan, next_step_prompt
 
-    def handle_quick_response_click(self, selected):
-        return selected[0]
-
-    def handle_quick_response_samples(self, next_step_prompt):
-        if len(next_step_prompt) > 0 and len(next_step_prompt[0]) > 0:
-            return gr.Dataset(samples=next_step_prompt, visible=True)
-        return gr.Dataset(samples=[['-']], visible=False)
-
     def prepare_prompt_template(self, problem_type, current_article):
         """Delegate prompt preparation to the QuestionPromptHandler"""
         return self.prompt_handler.prepare_question_prompt(
@@ -238,7 +229,7 @@ class Chat:
             
         return problems
 
-    def update_one_problem(self, problem_index, difficulty_change, current_article, problems, timeout=60):
+    def rewrite_problem(self, problem_index, difficulty_change, current_article, problems, timeout=60):
         if problem_index is None or not problems or problem_index >= len(problems):
             self.logger.warn("Invalid problem index or empty list for update.")
             return problems
@@ -271,7 +262,7 @@ class Chat:
             problems.append((original_problem_type, updated_problem_text))
             
         except Exception as e:
-            self.logger.error(f"Error in update_one_problem for index {problem_index}: {str(e)}")
+            self.logger.error(f"Error in rewrite_problem for index {problem_index}: {str(e)}")
             # Optionally, you could keep the original problem or mark it as errored
             # For now, let's keep the original if update fails catastrophically before list modification
             pass # problems list remains unchanged if error before assignment
@@ -419,7 +410,7 @@ class Chat:
             inputs=[self.rewrite_question_dropdown, self.update_question_dropdown, self.chatbot],
             outputs=[self.chatbot]
         ).then(
-            fn=self.update_one_problem,
+            fn=self.rewrite_problem,
             inputs=[self.rewrite_question_dropdown, self.update_question_dropdown, self.textbox, self.problem_list],
             outputs=[self.problem_list],
         ).then(
@@ -437,13 +428,6 @@ class Chat:
             outputs=self.spinner,
             show_progress=False,
         )
-        
-        self.prompt_preview.change(
-            fn=self.handle_prompt_edit,
-            inputs=[self.prompt_preview],
-            outputs=[]
-        )
-
 
         self.submit_button.click(
             fn=lambda article, problems: self.exam_paper_handler.generate_final_exam_doc(article, problems)[0],
@@ -459,31 +443,6 @@ class Chat:
     def update_prompt_preview(self, question_type, current_article):
         """
         Updates the prompt preview based on question type.
-        If the user has edited the prompt, we preserve their edits.
         """
-
-        if self.user_edited_prompt is not None and not hasattr(self, '_last_question_type'):
-            # First time initialization
-            self._last_question_type = question_type
-            
-        if hasattr(self, '_last_question_type') and question_type != self._last_question_type:
-            # Question type changed, reset edited prompt
-            self.user_edited_prompt = None
-            self._last_question_type = question_type
-        
-        if self.user_edited_prompt is not None:
-            return self.user_edited_prompt
-            
-        # if question_type == "cloze":
-        #     marked_article = current_article
-        #     return self.prepare_prompt_template(question_type, marked_article)
-     
         return self.prepare_prompt_template(question_type, current_article)
 
-    def handle_prompt_edit(self, prompt_preview):
-        self.user_edited_prompt = prompt_preview
-        
-    def reset_prompt_edit(self, question_type):
-        """Reset user edited prompt when question type changes"""
-        self.user_edited_prompt = None
-        return self.update_prompt_preview(question_type, self.textbox.value)
