@@ -11,6 +11,7 @@ from exam_maker.handlers.exam_paper_handler import ExamPaperHandler
 from exam_maker.handlers.question_formatter import QuestionFormatter, QUESTION_SCHEMA
 from exam_maker.handlers.llm_handler import LLMHandler
 from exam_maker.config import ASSISTANT_MODEL
+from exam_maker.utils.token_tracker import token_tracker
 
 
 CONVERSATION_STARTER = "Click this button to make the passage longer"
@@ -103,6 +104,18 @@ class Chat:
             visible=False
         )
 
+        # Token usage components
+        self.token_summary = gr.Textbox(
+            label="Session Token Usage Summary",
+            value="No LLM calls made yet",
+            interactive=False,
+            lines=3,
+            render=False
+        )
+        
+        self.export_usage_button = gr.Button("Export Usage Data", render=False)
+        self.usage_download = gr.DownloadButton("Download Usage Report", visible=False, render=False)
+
     def _get_problem_choices(self, problem_list_value):
         if not problem_list_value:
             return gr.update(choices=[], value=None)
@@ -118,6 +131,7 @@ class Chat:
         return gr.update(choices=choices, value=new_value)
 
     def _handle_response(self, message, history, textbox_content):
+        start_time = time.time()
         integrated_message = message
 
         if message == CONVERSATION_STARTER:
@@ -172,6 +186,33 @@ class Chat:
         except:
             next_step_prompt = [["進入下一步"]]
 
+        # Estimate token usage for assistant streaming (since usage data isn't directly available)
+        duration = time.time() - start_time
+        estimated_prompt_tokens = len(integrated_message.split()) * 1.3  # Rough estimation
+        estimated_completion_tokens = len(full_response.split()) * 1.3
+        
+        usage_data = {
+            'prompt_tokens': int(estimated_prompt_tokens),
+            'completion_tokens': int(estimated_completion_tokens),
+            'total_tokens': int(estimated_prompt_tokens + estimated_completion_tokens)
+        }
+        
+        context = {
+            'message_type': 'assistant_streaming',
+            'original_message': message,
+            'integrated_message_length': len(integrated_message),
+            'response_length': len(full_response)
+        }
+        
+        # Track the estimated usage
+        token_tracker.track_usage(
+            function_name="assistant_streaming",
+            model="assistant_api",  # Different model identifier for assistant API
+            usage_data=usage_data,
+            duration=duration,
+            context=context
+        )
+
         yield suggestion, current_lesson_plan, next_step_prompt
 
     def prepare_prompt_template(self, problem_type, current_article):
@@ -181,11 +222,65 @@ class Chat:
             current_article=current_article,
         )
 
+    def generate_problem(self, prompt, timeout=60):
+        print(f"Generate problem with prompt: {prompt[:100]}...")
+        
+        # Start timing
+        start_time = time.time()
+        
+        try:
+            # Use chat completion API
+            response = self.client.chat.completions.create(
+                model=ASSISTANT_MODEL,
+                messages=[
+                    {"role": "user", "content": prompt}
+                ],
+                response_format={
+                    "type": "json_schema",
+                    "json_schema": {          # ← mandatory wrapper
+                        "name": "MultipleChoiceQuestion",   # any identifier you like
+                        "strict": True,                     # optional, but enables token-level validation
+                        "schema": QUESTION_SCHEMA           # your schema lives here
+                    },
+                }
+            )
+            
+            duration = time.time() - start_time
+            
+            # Track token usage
+            usage_data = {
+                'prompt_tokens': response.usage.prompt_tokens,
+                'completion_tokens': response.usage.completion_tokens,
+                'total_tokens': response.usage.total_tokens
+            }
+            
+            context = {
+                'prompt_length': len(prompt),
+                'response_format': 'json_schema'
+            }
+            
+            usage = token_tracker.track_usage(
+                function_name="generate_problem",
+                model=ASSISTANT_MODEL,
+                usage_data=usage_data,
+                duration=duration,
+                context=context
+            )
+            
+            # Get the response content
+            return response.choices[0].message.content, usage
+            
+        except Exception as e:
+            duration = time.time() - start_time
+            self.logger.error(f"Error during problem generation: {str(e)} (duration: {duration:.2f}s)")
+            return f"Error generating problem: {str(e)}", None
+
     def create_problem(self, problem_type, prompt_preview, problems, timeout=60):
         start_time = time.time()
         
         try:
             raw_problem_text = self.llm_handler.generate_response(prompt_preview, timeout=timeout, schema=QUESTION_SCHEMA)
+            raw_problem_text, usage = self.generate_problem(prompt_preview, timeout=timeout)
             
             problem_text = self.question_formatter.normalize_question_output(raw_problem_text)
             
@@ -194,6 +289,10 @@ class Chat:
             
             # Add the problem to the list
             problems.append((problem_type, problem_text))
+            
+            # Return problems and usage info for chat display
+            usage_message = token_tracker.format_usage_message(usage) if usage else ""
+            return problems, usage_message
             
         except Exception as e:
             self.logger.error(f"Error in create_problem: {str(e)}")
@@ -204,7 +303,7 @@ class Chat:
     def rewrite_problem(self, problem_index, difficulty_change, current_article, problems, timeout=60):
         if problem_index is None or not problems or problem_index >= len(problems):
             self.logger.warn("Invalid problem index or empty list for update.")
-            return problems
+            return problems, "❌ Invalid problem selection"
 
         original_problem_type, original_problem_text = problems[problem_index]
         
@@ -220,6 +319,7 @@ class Chat:
         
         start_time = time.time()
         try:
+            raw_updated_problem_text, usage = self.generate_problem(update_prompt, timeout=timeout)
             raw_updated_problem_text = self.llm_handler.generate_response(update_prompt, timeout=timeout, schema=QUESTION_SCHEMA)
             
             updated_problem_text = self.question_formatter.normalize_question_output(
@@ -233,13 +333,15 @@ class Chat:
             # Update the problem in the list
             problems.append((original_problem_type, updated_problem_text))
             
+            # Return problems and usage info for chat display
+            usage_message = token_tracker.format_usage_message(usage) if usage else ""
+            return problems, usage_message
+            
         except Exception as e:
             self.logger.error(f"Error in rewrite_problem for index {problem_index}: {str(e)}")
             # Optionally, you could keep the original problem or mark it as errored
             # For now, let's keep the original if update fails catastrophically before list modification
-            pass # problems list remains unchanged if error before assignment
-            
-        return problems
+            return problems, f"❌ Error updating question: {str(e)}"
 
     def render(self):  
         with gr.Group(visible=False) as chat_ui:
@@ -304,6 +406,14 @@ class Chat:
             with gr.Row():
                 download_button = gr.DownloadButton("Download Word Document", visible=False)
                 
+            # Token usage section
+            with gr.Row():
+                with gr.Column():
+                    self.token_summary.render()
+                    with gr.Row():
+                        self.export_usage_button.render()
+                        self.usage_download.render()
+        
         # Add load event to update prompt_preview when interface loads
         self.textbox.change(
             fn=self.update_prompt_preview,
@@ -323,26 +433,24 @@ class Chat:
             outputs=self.spinner,
             show_progress=False,
         ).then(
-            fn=lambda problem_type, history: gr.update(
-                value=history + [{"role": "user", "content": f"Help me generate a {problem_type} question."}]
-            ),
+            fn=lambda problem_type, history: history + [{"role": "user", "content": f"Help me generate a {problem_type} question."}],
             inputs=[self.question_type_dropdown, self.chatbot],
             outputs=[self.chatbot]
         ).then(
-            fn=lambda problem_type, prompt_preview, problems:
-                self.create_problem(problem_type, prompt_preview, problems, timeout=30),
+            fn=lambda problem_type, prompt_preview, problems: self.create_problem(problem_type, prompt_preview, problems, timeout=30)[0],  # Just return problems, ignore usage message
             inputs=[self.question_type_dropdown, self.prompt_preview, self.problem_list],
             outputs=[self.problem_list],
         ).then(
-            fn=lambda problem_type, history: gr.update(
-                value=history + [{"role": "assistant", "content": f"Finished generating {problem_type} question."}]
-            ),
+            fn=lambda problem_type, history: history + [{"role": "assistant", "content": f"✅ Finished generating {problem_type} question. Check the right panel for the new question."}],
             inputs=[self.question_type_dropdown, self.chatbot],
             outputs=[self.chatbot]
         ).then(
             fn=lambda: gr.update(visible=False),  # Hide spinner
             outputs=self.spinner,
             show_progress=False,
+        ).then(
+            fn=self.update_token_summary,  # Update token summary
+            outputs=self.token_summary
         )
 
         self.problem_list.change(
@@ -376,19 +484,15 @@ class Chat:
             outputs=self.spinner,
             show_progress=False,
         ).then(
-            fn=lambda idx, diff, history: gr.update(
-                value=history + [{"role": "user", "content": f"Help me update question {idx} to be {diff}."}]
-            ),
+            fn=lambda idx, diff, history: history + [{"role": "user", "content": f"Help me update question {idx} to be {diff}."}],
             inputs=[self.rewrite_question_dropdown, self.update_question_dropdown, self.chatbot],
             outputs=[self.chatbot]
         ).then(
-            fn=self.rewrite_problem,
+            fn=lambda idx, diff, article, problems: self.update_one_problem(idx, diff, article, problems, timeout=30)[0],  # Just return problems, ignore usage message
             inputs=[self.rewrite_question_dropdown, self.update_question_dropdown, self.textbox, self.problem_list],
             outputs=[self.problem_list],
         ).then(
-            fn=lambda idx, diff, history: gr.update(
-                value=history + [{"role": "assistant", "content": f"Finished updating question {idx} to be {diff}."}]
-            ),
+            fn=lambda idx, diff, history: history + [{"role": "assistant", "content": f"✅ Finished updating question {idx} to be {diff}. Check the right panel for the updated question."}],
             inputs=[self.rewrite_question_dropdown, self.update_question_dropdown, self.chatbot],
             outputs=[self.chatbot]
         ).then(
@@ -399,6 +503,9 @@ class Chat:
             fn=lambda: gr.update(visible=False),  # Hide spinner
             outputs=self.spinner,
             show_progress=False,
+        ).then(
+            fn=self.update_token_summary,  # Update token summary
+            outputs=self.token_summary
         )
 
         self.submit_button.click(
@@ -410,6 +517,21 @@ class Chat:
             outputs=download_button
         )
 
+        # Export usage data event handler
+        self.export_usage_button.click(
+            fn=lambda: token_tracker.export_usage_data(),
+            outputs=self.usage_download
+        ).then(
+            fn=lambda: gr.update(visible=True),
+            outputs=self.usage_download
+        )
+
+        # Update token summary when chatbot changes (after assistant responses)
+        self.chatbot.change(
+            fn=self.update_token_summary,
+            outputs=self.token_summary
+        )
+
         return chat_ui  # Return the group for access in the main app
 
     def update_prompt_preview(self, question_type, current_article):
@@ -418,3 +540,34 @@ class Chat:
         """
         return self.prepare_prompt_template(question_type, current_article)
 
+    def handle_prompt_edit(self, prompt_preview):
+        self.user_edited_prompt = prompt_preview
+        
+    def reset_prompt_edit(self, question_type):
+        """Reset user edited prompt when question type changes"""
+        self.user_edited_prompt = None
+        return self.update_prompt_preview(question_type, self.textbox.value)
+
+    def update_token_summary(self):
+        """Update the token usage summary display"""
+        summary = token_tracker.get_session_summary()
+        if summary['total_calls'] == 0:
+            return "No LLM calls made yet"
+        
+        summary_text = (
+            f"Total Calls: {summary['total_calls']}\n"
+            f"Total Tokens: {summary['total_tokens']:,}\n"
+            f"Total Cost: ${summary['total_cost']:.4f}\n"
+            f"Avg Tokens/Call: {summary['average_tokens_per_call']:.1f}\n"
+            f"Functions Used: {', '.join(summary['functions_used'])}"
+        )
+        return summary_text
+
+    def export_usage_data(self):
+        """Export token usage data and return file path"""
+        try:
+            filepath = token_tracker.export_usage_data()
+            return gr.update(visible=True), filepath
+        except Exception as e:
+            self.logger.error(f"Error exporting usage data: {str(e)}")
+            return gr.update(visible=False), None

@@ -3,6 +3,7 @@ from exam_maker import option
 import pandas as pd
 from exam_maker.utils.utils import call_llm_to_generate_article
 from exam_maker.logger import app_logger
+from exam_maker.utils.token_tracker import token_tracker
 
 class EntryForm:
     def __init__(self, llm_client, assistant_id):
@@ -135,7 +136,7 @@ class EntryForm:
         }
         mapped_grammar_values = [*map(lambda x: PART_OF_SPEECH_MAPPING.get(x), grammar_values)]
 
-        generated_article = call_llm_to_generate_article(
+        generated_article, usage = call_llm_to_generate_article(
             grade_values=grade_values,
             topic_values=topic_values,
             grammar_values=mapped_grammar_values,
@@ -145,8 +146,29 @@ class EntryForm:
             additional_vocab_values=additional_vocab_values
         )
 
+        # Log token usage for this operation
+        app_logger.info(f"Article generation completed - {usage.total_tokens} tokens, ${usage.cost_estimate:.4f}")
+
+        # Get updated token summary
+        token_summary = self.get_token_summary()
+
         # Enable the chat interface
-        return generated_article, gr.update(visible=True), gr.update(visible=False)
+        return generated_article, gr.update(visible=True), gr.update(visible=False), token_summary
+
+    def get_token_summary(self):
+        """Get current token usage summary"""
+        summary = token_tracker.get_session_summary()
+        if summary['total_calls'] == 0:
+            return "No LLM calls made yet"
+        
+        summary_text = (
+            f"Total Calls: {summary['total_calls']}\n"
+            f"Total Tokens: {summary['total_tokens']:,}\n"
+            f"Total Cost: ${summary['total_cost']:.4f}\n"
+            f"Avg Tokens/Call: {summary['average_tokens_per_call']:.1f}\n"
+            f"Functions Used: {', '.join(summary['functions_used'])}"
+        )
+        return summary_text
 
     def render(self):
         with gr.Group() as selection_ui:
