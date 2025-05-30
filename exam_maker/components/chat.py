@@ -9,6 +9,7 @@ from exam_maker.logger import app_logger
 from exam_maker.handlers.prompt_handler import PromptHandler
 from exam_maker.handlers.exam_paper_handler import ExamPaperHandler
 from exam_maker.handlers.question_formatter import QuestionFormatter, QUESTION_SCHEMA
+from exam_maker.handlers.llm_handler import LLMHandler
 from exam_maker.config import ASSISTANT_MODEL
 
 
@@ -22,6 +23,7 @@ class Chat:
         self.prompt_handler = PromptHandler()
         self.exam_paper_handler = ExamPaperHandler()
         self.question_formatter = QuestionFormatter()
+        self.llm_handler = LLMHandler(client)
         self._define_components()
         self.logger = app_logger
 
@@ -180,40 +182,13 @@ class Chat:
         )
 
     def generate_problem(self, prompt, timeout=60):
-        print(f"Generate problem with prompt: {prompt[:100]}...")
-        
-        # Start timing
-        start_time = time.time()
-        
-        try:
-            # Use chat completion API
-            response = self.client.chat.completions.create(
-                model=ASSISTANT_MODEL,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ],
-                response_format={
-                    "type": "json_schema",
-                    "json_schema": {          # ← mandatory wrapper
-                        "name": "MultipleChoiceQuestion",   # any identifier you like
-                        "strict": True,                     # optional, but enables token-level validation
-                        "schema": QUESTION_SCHEMA           # your schema lives here
-                    },
-                }
-            )
-            
-            # Get the response content
-            return response.choices[0].message.content
-            
-        except Exception as e:
-            self.logger.error(f"Error during problem generation: {str(e)}")
-            return f"Error generating problem: {str(e)}"
+        return self.llm_handler.generate_response(prompt, timeout, schema=QUESTION_SCHEMA)
 
     def create_problem(self, problem_type, prompt_preview, problems, timeout=60):
         start_time = time.time()
         
         try:
-            raw_problem_text = self.generate_problem(prompt_preview, timeout=timeout)
+            raw_problem_text = self.llm_handler.generate_response(prompt_preview, timeout=timeout, schema=QUESTION_SCHEMA)
             
             problem_text = self.question_formatter.normalize_question_output(raw_problem_text)
             
@@ -248,7 +223,7 @@ class Chat:
         
         start_time = time.time()
         try:
-            raw_updated_problem_text = self.generate_problem(update_prompt, timeout=timeout)
+            raw_updated_problem_text = self.llm_handler.generate_response(update_prompt, timeout=timeout, schema=QUESTION_SCHEMA)
             
             updated_problem_text = self.question_formatter.normalize_question_output(
                 # problem_type=original_problem_type, # Use original type for post-processing
