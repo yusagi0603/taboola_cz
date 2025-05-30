@@ -62,12 +62,15 @@ class LLMHandler:
             str: The generated response deltas
         """
         try:
-            with self.client.beta.threads.runs.stream(
-                thread_id=thread.id,
-                assistant_id=self.assistant_id
-            ) as stream:
-                for text_delta in stream.text_deltas:
-                    yield text_delta
+            response = self.client.chat.completions.create(
+                model=ASSISTANT_MODEL,
+                messages=[{"role": "user", "content": prompt}],
+                stream=True
+            )
+            
+            for chunk in response:
+                if chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content
                     
         except Exception as e:
             self.logger.error(f"Error during streaming response: {str(e)}")
