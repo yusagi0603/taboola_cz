@@ -181,9 +181,6 @@ class Chat:
             current_article=current_article,
         )
 
-    def generate_problem(self, prompt, timeout=60):
-        return self.llm_handler.generate_response(prompt, timeout, schema=QUESTION_SCHEMA)
-
     def create_problem(self, problem_type, prompt_preview, problems, timeout=60):
         start_time = time.time()
         
