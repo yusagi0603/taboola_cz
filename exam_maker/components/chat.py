@@ -29,20 +29,8 @@ class Chat:
         self.logger = app_logger
 
     def _define_components(self):
-        # Toolbar components
-        self.display_usage_button = gr.Button(
-            "📊 Usage", 
-            size="sm", # User changed to size="sm"
-            variant="secondary",
-            render=False
-        )
-        # self.another_button = gr.Button("Another Action", render=False) # Placeholder for more buttons
 
-        self.toolbar = gr.Row(
-            # [self.display_usage_button, self.another_button], # Add buttons here
-            render=False,
-            elem_classes=["chat-toolbar"] # For potential styling
-        )
+        self.create_toolbar()
 
         # Initialize components
         self.chatbot = gr.Chatbot(type="messages")
@@ -127,13 +115,31 @@ class Chat:
             render=False
         )
 
+    def create_toolbar(self):
+
+        self.display_usage_button = gr.Button(
+            "📊 Usage", 
+            variant="secondary",
+            render=False
+        )
+        self.placeholder_button1 = gr.Button(   
+            "Button 1", 
+            variant="secondary", 
+            render=False
+        )
+        self.placeholder_button2 = gr.Button(   
+            "Button 2", 
+            variant="secondary", 
+            render=False
+        )
+
+
     def _get_problem_choices(self, problem_list_value):
         if not problem_list_value:
             return gr.update(choices=[], value=None)
         
         choices = []
         for i, (problem_type, problem_text) in enumerate(problem_list_value):
-            # Create a more descriptive label, e.g., "Q1 (word_comprehension): What is..."
             question_intro_words = problem_text.split("Question:", 1)[-1].strip().split()[:5]
             question_preview = " ".join(question_intro_words) + "..." if question_intro_words else "N/A"
             choices.append((f"Q{i+1} ({problem_type}): {question_preview}", i)) 
@@ -141,7 +147,36 @@ class Chat:
         new_value = choices[0][1] if choices else None 
         return gr.update(choices=choices, value=new_value)
 
+    def display_token_usage_in_chat(self, current_chat_history):
+        """Gets the token summary and appends it to the chat history as a message list.
+           Expected format for type="messages" is a list of dicts: {"role": str, "content": str}
+        """
+        usage_summary_text = token_tracker.format_summary()
+        if not usage_summary_text or usage_summary_text.strip() == "No LLM calls made yet": # Be more specific
+            usage_summary_text = "No token usage tracked yet for this session."
+        
+        # Ensure current_chat_history is a list
+        if current_chat_history is None:
+            current_chat_history = []
+
+        # 
+        user_message = {
+            "role": "user",
+            "content": "Give me the token usage"
+        }
+
+        # Create the new message dictionary
+        usage_message = {
+            "role": "assistant", # Or use "system" if you prefer and style it differently
+            "content": f"📊 Token Usage:\n{usage_summary_text}"
+        }
+        
+        # Append the new message dictionary to the history
+        updated_chat_history = current_chat_history + [user_message, usage_message]
+        return updated_chat_history
+
     def _handle_response(self, message, history, textbox_content):
+        # When type="messages", history is already in the correct list of dicts format
         start_time = time.time()
         integrated_message = message
 
@@ -289,10 +324,10 @@ class Chat:
 
     def render(self):  
         with gr.Group(visible=False) as chat_ui:
-            # Render the toolbar at the top
-            with gr.Row(elem_classes=["chat-toolbar"]):
+            with gr.Row() as toolbar:
                 self.display_usage_button.render()
-                # self.another_button.render() # Render other buttons here if added
+                self.placeholder_button1.render()
+                self.placeholder_button2.render()
             
             with gr.Row(equal_height=True):
                 # Left Column
@@ -356,7 +391,7 @@ class Chat:
                 
             with gr.Row():
                 with gr.Column():
-                    self.token_summary.render() # Rendered as always visible now
+                    self.token_summary.render()
 
         self.textbox.change(
             fn=self.update_prompt_preview,
@@ -452,6 +487,13 @@ class Chat:
         )
 
         self.chatbot.change(fn=token_tracker.format_summary, outputs=self.token_summary)
+
+        # Event handler for Button 1 (placeholder_button1)
+        self.display_usage_button.click(
+            fn=self.display_token_usage_in_chat,
+            inputs=[self.chatbot], # Takes current chat history
+            outputs=[self.chatbot] # Outputs updated chat history
+        )
 
         return chat_ui
 
