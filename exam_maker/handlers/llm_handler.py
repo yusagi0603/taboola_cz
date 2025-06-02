@@ -65,11 +65,11 @@ class LLMHandler:
                 context=context
             )
             
-            return response.choices[0].message.content, usage_info
+            return response.choices[0].message.content
             
         except Exception as e:
             self.logger.error(f"Error during response generation: {str(e)}")
-            return f"Error generating response: {str(e)}", None
+            return f"Error generating response: {str(e)}"
 
     def generate_streaming_response(self, prompt):
         """

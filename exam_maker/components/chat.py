@@ -29,6 +29,20 @@ class Chat:
         self.logger = app_logger
 
     def _define_components(self):
+        # Toolbar components
+        self.display_usage_button = gr.Button(
+            "📊 Usage", 
+            size="sm", # User changed to size="sm"
+            variant="secondary",
+            render=False
+        )
+        # self.another_button = gr.Button("Another Action", render=False) # Placeholder for more buttons
+
+        self.toolbar = gr.Row(
+            # [self.display_usage_button, self.another_button], # Add buttons here
+            render=False,
+            elem_classes=["chat-toolbar"] # For potential styling
+        )
 
         # Initialize components
         self.chatbot = gr.Chatbot(type="messages")
@@ -220,23 +234,15 @@ class Chat:
         )
 
     def create_problem(self, problem_type, prompt_preview, problems, timeout=60):
-        start_time = time.time()
         self.logger.info(f"Creating {problem_type} with prompt: {prompt_preview[:100]}...")
         try:
-            raw_problem_text, usage_info = self.llm_handler.generate_response(
+            raw_problem_text = self.llm_handler.generate_response(
                 prompt_preview, 
                 timeout=timeout, 
                 schema=QUESTION_SCHEMA
             )
+            problem_text = self.question_formatter.normalize_question_output(raw_problem_text)
             
-            if usage_info is None: # Error occurred in LLMHandler
-                self.logger.error(f"Error received from LLMHandler for {problem_type}: {raw_problem_text}")
-                problem_text = raw_problem_text # This is the error message
-            else:
-                problem_text = self.question_formatter.normalize_question_output(raw_problem_text)
-            
-            generation_time = time.time() - start_time
-            self.logger.info(f"Problem {problem_type} processed in {generation_time:.2f} seconds. Usage recorded by LLMHandler.")
             problems.append((problem_type, problem_text))
             
             usage_message = token_tracker.format_summary()
@@ -264,22 +270,14 @@ class Chat:
             current_article=current_article 
         )
         
-        start_time = time.time()
         try:
-            raw_updated_problem_text, usage_info = self.llm_handler.generate_response(
+            raw_updated_problem_text = self.llm_handler.generate_response(
                 update_prompt, 
                 timeout=timeout, 
                 schema=QUESTION_SCHEMA
             )
             
-            if usage_info is None: # Error from LLMHandler
-                self.logger.error(f"Error received from LLMHandler for rewrite: {raw_updated_problem_text}")
-                updated_problem_text = raw_updated_problem_text # This is the error message
-            else:
-                updated_problem_text = self.question_formatter.normalize_question_output(raw_updated_problem_text)
-            
-            generation_time = time.time() - start_time
-            self.logger.info(f"Problem at index {problem_index} rewritten in {generation_time:.2f}s. Usage recorded by LLMHandler.")
+            updated_problem_text = self.question_formatter.normalize_question_output(raw_updated_problem_text)
             
             # Update the problem in the list
             problems.append((original_problem_type, updated_problem_text))
@@ -295,6 +293,11 @@ class Chat:
 
     def render(self):  
         with gr.Group(visible=False) as chat_ui:
+            # Render the toolbar at the top
+            with gr.Row(elem_classes=["chat-toolbar"]):
+                self.display_usage_button.render()
+                # self.another_button.render() # Render other buttons here if added
+            
             with gr.Row(equal_height=True):
                 # Left Column
                 with gr.Column():
@@ -340,7 +343,6 @@ class Chat:
                                 elem_classes=["fullscreen-editor"]
                             )
 
-            # Move ChatInterface outside of the columns to avoid duplicate rendering
             gr.ChatInterface(
                 self._handle_response,
                 chatbot=self.chatbot,
@@ -356,19 +358,16 @@ class Chat:
             with gr.Row():
                 download_button = gr.DownloadButton("Download Word Document", visible=False)
                 
-            # Token usage section
             with gr.Row():
                 with gr.Column():
-                    self.token_summary.render()
+                    self.token_summary.render() # Rendered as always visible now
 
-        # Add load event to update prompt_preview when interface loads
         self.textbox.change(
             fn=self.update_prompt_preview,
             inputs=[self.question_type_dropdown, self.textbox],
             outputs=[self.prompt_preview]
         )
         
-        # Event handler for generating question
         self.question_type_dropdown.change(
             fn=self.update_prompt_preview,
             inputs=[self.question_type_dropdown, self.textbox],
@@ -376,7 +375,7 @@ class Chat:
         )
 
         self.generate_question_button.click(
-            fn=lambda: gr.update(visible=True),  # Show spinner
+            fn=lambda: gr.update(visible=True),
             outputs=self.spinner,
             show_progress=False,
         ).then(
@@ -384,20 +383,17 @@ class Chat:
             inputs=[self.question_type_dropdown, self.chatbot],
             outputs=[self.chatbot]
         ).then(
-            fn=lambda problem_type, prompt_preview, problems: self.create_problem(problem_type, prompt_preview, problems, timeout=30)[0],  # Just return problems, ignore usage message
-            inputs=[self.question_type_dropdown, self.prompt_preview, self.problem_list],
-            outputs=[self.problem_list],
+            fn=self.create_problem, 
+            inputs=[self.question_type_dropdown, self.prompt_preview, self.problem_list], 
+            outputs=[self.problem_list, self.token_summary] 
         ).then(
             fn=lambda problem_type, history: history + [{"role": "assistant", "content": f"✅ Finished generating {problem_type} question. Check the right panel for the new question."}],
             inputs=[self.question_type_dropdown, self.chatbot],
             outputs=[self.chatbot]
         ).then(
-            fn=lambda: gr.update(visible=False),  # Hide spinner
+            fn=lambda: gr.update(visible=False),
             outputs=self.spinner,
             show_progress=False,
-        ).then(
-            fn=token_tracker.format_summary,  # Update token summary
-            outputs=self.token_summary
         )
 
         self.problem_list.change(
@@ -406,8 +402,6 @@ class Chat:
             outputs=[self.rewrite_question_dropdown]
         )
 
-
-        # Event handler for updating question
         self.rewrite_question_dropdown.change(
             fn=None, # No preview update for now, or a dedicated one
             inputs=None,
@@ -427,7 +421,7 @@ class Chat:
         )
 
         self.rewrite_question_confirm_button.click(
-            fn=lambda: gr.update(visible=True),  # Show spinner
+            fn=lambda: gr.update(visible=True),
             outputs=self.spinner,
             show_progress=False,
         ).then(
@@ -435,24 +429,21 @@ class Chat:
             inputs=[self.rewrite_question_dropdown, self.update_question_dropdown, self.chatbot],
             outputs=[self.chatbot]
         ).then(
-            fn=lambda idx, diff, article, problems: self.rewrite_problem(idx, diff, article, problems, timeout=30)[0],  # Just return problems, ignore usage message
-            inputs=[self.rewrite_question_dropdown, self.update_question_dropdown, self.textbox, self.problem_list],
-            outputs=[self.problem_list],
+            fn=self.rewrite_problem, 
+            inputs=[self.rewrite_question_dropdown, self.update_question_dropdown, self.textbox, self.problem_list], 
+            outputs=[self.problem_list, self.token_summary]
         ).then(
             fn=lambda idx, diff, history: history + [{"role": "assistant", "content": f"✅ Finished updating question {idx} to be {diff}. Check the right panel for the updated question."}],
             inputs=[self.rewrite_question_dropdown, self.update_question_dropdown, self.chatbot],
             outputs=[self.chatbot]
         ).then(
-            fn=self._get_problem_choices,  # Update choices after modifying problem list
+            fn=self._get_problem_choices,
             inputs=[self.problem_list],
             outputs=[self.rewrite_question_dropdown]
         ).then(
-            fn=lambda: gr.update(visible=False),  # Hide spinner
+            fn=lambda: gr.update(visible=False),
             outputs=self.spinner,
             show_progress=False,
-        ).then(
-            fn=token_tracker.format_summary,  # Update token summary
-            outputs=self.token_summary
         )
 
         self.submit_button.click(
@@ -464,13 +455,9 @@ class Chat:
             outputs=download_button
         )
 
-        # Update token summary when chatbot changes (after assistant responses)
-        self.chatbot.change(
-            fn=token_tracker.format_summary,
-            outputs=self.token_summary
-        )
+        self.chatbot.change(fn=token_tracker.format_summary, outputs=self.token_summary)
 
-        return chat_ui  # Return the group for access in the main app
+        return chat_ui
 
     def update_prompt_preview(self, question_type, current_article):
         """
