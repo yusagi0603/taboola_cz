@@ -254,23 +254,19 @@ class Chat:
         return problems, token_tracker.format_summary()
 
     def rewrite_problem(self, problem_index, difficulty_change, current_article, problems, timeout=60):
-        if problem_index is None or not problems or problem_index >= len(problems):
-            self.logger.warn("Invalid problem index or empty list for update.")
-            return problems, "❌ Invalid problem selection"
 
-        original_problem_type, original_problem_text = problems[problem_index]
-        
-        self.logger.info(f"Rewriting problem at index {problem_index} ({original_problem_type}) to be {difficulty_change}. Original: {original_problem_text[:50]}...")
-
-        # Prepare prompt for updating the question
-        # This assumes you have a method like prepare_question_update_prompt in your PromptHandler
-        update_prompt = self.prompt_handler.prepare_question_update_prompt(
-            original_question_text=original_problem_text,
-            difficulty_change=difficulty_change,
-            current_article=current_article 
-        )
-        
         try:
+            original_problem_type, original_problem_text = problems[problem_index]
+            self.logger.info(f"Rewriting problem at index {problem_index} ({original_problem_type}) to be {difficulty_change}. Original: {original_problem_text[:50]}...")
+
+            # Prepare prompt for updating the question
+            # This assumes you have a method like prepare_question_update_prompt in your PromptHandler
+            update_prompt = self.prompt_handler.prepare_question_update_prompt(
+                original_question_text=original_problem_text,
+                difficulty_change=difficulty_change,
+                current_article=current_article 
+            )
+        
             raw_updated_problem_text = self.llm_handler.generate_response(
                 update_prompt, 
                 timeout=timeout, 
