@@ -1,6 +1,7 @@
 import time
 from exam_maker.logger import app_logger
 from exam_maker.config import ASSISTANT_MODEL
+from exam_maker.utils.token_tracker import token_tracker
 
 class LLMHandler:
     def __init__(self, client):
@@ -9,7 +10,7 @@ class LLMHandler:
 
     def generate_response(self, prompt, timeout=60, schema=None):
         """
-        Generate a response from the LLM.
+        Generate a response from the LLM and track token usage.
         
         Args:
             prompt (str): The prompt to send to the LLM
@@ -17,7 +18,7 @@ class LLMHandler:
             schema (dict, optional): JSON schema for response format validation
             
         Returns:
-            str: The generated response content
+            tuple: (The generated response content, usage_info object)
         """
         self.logger.info(f"Generating response with prompt: {prompt[:100]}...")
         start_time = time.time()
@@ -42,14 +43,33 @@ class LLMHandler:
             
             response = self.client.chat.completions.create(**request_params)
             
-            generation_time = time.time() - start_time
-            self.logger.info(f"Response generated in {generation_time:.2f} seconds")
+            duration = time.time() - start_time
+            self.logger.info(f"Response generated in {duration:.2f} seconds")
+
+            usage_data = {
+                'prompt_tokens': response.usage.prompt_tokens,
+                'completion_tokens': response.usage.completion_tokens,
+                'total_tokens': response.usage.total_tokens
+            }
             
-            return response.choices[0].message.content
+            context = {
+                'prompt_length': len(prompt),
+                'response_format': 'json_schema' if schema else 'text'
+            }
+            
+            usage_info = token_tracker.track_usage(
+                function_name="llm_handler.generate_response",
+                model=ASSISTANT_MODEL,
+                usage_data=usage_data,
+                duration=duration,
+                context=context
+            )
+            
+            return response.choices[0].message.content, usage_info
             
         except Exception as e:
             self.logger.error(f"Error during response generation: {str(e)}")
-            return f"Error generating response: {str(e)}"
+            return f"Error generating response: {str(e)}", None
 
     def generate_streaming_response(self, prompt):
         """
@@ -62,16 +82,16 @@ class LLMHandler:
             str: The generated response deltas
         """
         try:
-            response = self.client.chat.completions.create(
+            response_stream = self.client.chat.completions.create(
                 model=ASSISTANT_MODEL,
                 messages=[{"role": "user", "content": prompt}],
                 stream=True
             )
             
-            for chunk in response:
+            for chunk in response_stream:
                 if chunk.choices[0].delta.content:
                     yield chunk.choices[0].delta.content
-                    
+            
         except Exception as e:
             self.logger.error(f"Error during streaming response: {str(e)}")
             yield f"Error during streaming: {str(e)}" 

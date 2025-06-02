@@ -70,7 +70,7 @@ with gr.Blocks(css=custom_css) as demo:
 
     # Initialize token summary on demo load
     demo.load(
-        fn=lambda: (token_tracker.reset_session(), chat.update_token_summary())[1],  # Reset tracker and return summary
+        fn=lambda: (token_tracker.reset_session(), token_tracker.format_summary())[1],  # Reset tracker and return summary
         outputs=chat.token_summary
     )
 
