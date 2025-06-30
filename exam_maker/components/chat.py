@@ -405,24 +405,6 @@ class Chat:
             outputs=[self.rewrite_question_dropdown]
         )
 
-        self.rewrite_question_dropdown.change(
-            fn=None, # No preview update for now, or a dedicated one
-            inputs=None,
-            outputs=None 
-            # fn=self.prepare_prompt_preview, 
-            # inputs=[self.question_type_dropdown, self.difficulty_dropdown, self.textbox],
-            # outputs=[self.prompt_preview]
-        )
-
-        self.update_question_dropdown.change(
-            fn=None, # No preview update for now, or a dedicated one
-            inputs=None,
-            outputs=None
-            # fn=self.prepare_prompt_preview,
-            # inputs=[self.question_type_dropdown, self.difficulty_dropdown, self.textbox],
-            # outputs=[self.prompt_preview]
-        )
-
         self.rewrite_question_confirm_button.click(
             fn=lambda: gr.update(visible=True),
             outputs=self.spinner,
