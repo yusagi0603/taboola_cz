@@ -106,20 +106,12 @@ class Chat:
             visible=False
         )
 
-        # Token usage components
-        self.token_summary = gr.Textbox(
-            label="Session Token Usage Summary",
-            value="No LLM calls made yet",
-            interactive=False,
-            lines=3,
-            render=False
-        )
 
     def create_toolbar(self):
 
         self.display_usage_button = gr.Button(
             "📊 Usage", 
-            variant="secondary",
+            variant="primary",
             render=False
         )
         self.placeholder_button1 = gr.Button(   
@@ -252,13 +244,12 @@ class Chat:
             
             problems.append((problem_type, problem_text))
             
-            usage_message = token_tracker.format_summary()
-            return problems, usage_message
+            return problems
             
         except Exception as e:
             self.logger.error(f"Error in create_problem for {problem_type}: {str(e)}")
             problems.append((problem_type, f"Error creating problem: {str(e)}"))
-        return problems, token_tracker.format_summary()
+        return problems
 
     def rewrite_problem(self, problem_index, difficulty_change, current_article, problems, timeout=60):
 
@@ -285,8 +276,7 @@ class Chat:
             # Update the problem in the list
             problems.append((original_problem_type, updated_problem_text))
             
-            usage_message = token_tracker.format_summary()
-            return problems, usage_message
+            return problems
             
         except Exception as e:
             self.logger.error(f"Error in rewrite_problem for index {problem_index}: {str(e)}")
@@ -296,7 +286,7 @@ class Chat:
 
     def render(self):  
         with gr.Group(visible=False) as chat_ui:
-            with gr.Row() as toolbar:
+            with gr.Row(elem_classes=["toolbar"]) as toolbar:
                 self.display_usage_button.render()
                 self.placeholder_button1.render()
                 self.placeholder_button2.render()
@@ -361,9 +351,6 @@ class Chat:
             with gr.Row():
                 download_button = gr.DownloadButton("Download Word Document", visible=False)
                 
-            with gr.Row():
-                with gr.Column():
-                    self.token_summary.render()
 
         self.textbox.change(
             fn=self.prepare_prompt_preview,
@@ -388,7 +375,7 @@ class Chat:
         ).then(
             fn=self.create_problem, 
             inputs=[self.question_type_dropdown, self.prompt_preview, self.problem_list], 
-            outputs=[self.problem_list, self.token_summary] 
+            outputs=[self.problem_list] 
         ).then(
             fn=lambda problem_type, history: history + [{"role": "assistant", "content": f"✅ Finished generating {problem_type} question. Check the right panel for the new question."}],
             inputs=[self.question_type_dropdown, self.chatbot],
@@ -416,7 +403,7 @@ class Chat:
         ).then(
             fn=self.rewrite_problem, 
             inputs=[self.rewrite_question_dropdown, self.update_question_dropdown, self.textbox, self.problem_list], 
-            outputs=[self.problem_list, self.token_summary]
+            outputs=[self.problem_list]
         ).then(
             fn=lambda idx, diff, history: history + [{"role": "assistant", "content": f"✅ Finished updating question {idx} to be {diff}. Check the right panel for the updated question."}],
             inputs=[self.rewrite_question_dropdown, self.update_question_dropdown, self.chatbot],
@@ -439,8 +426,6 @@ class Chat:
             fn=lambda: gr.update(visible=True),
             outputs=download_button
         )
-
-        self.chatbot.change(fn=token_tracker.format_summary, outputs=self.token_summary)
 
         # Event handler for Button 1 (placeholder_button1)
         self.display_usage_button.click(
