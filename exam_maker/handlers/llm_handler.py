@@ -94,4 +94,32 @@ class LLMHandler:
             
         except Exception as e:
             self.logger.error(f"Error during streaming response: {str(e)}")
-            yield f"Error during streaming: {str(e)}" 
+            yield f"Error during streaming: {str(e)}"
+
+    def display_token_usage_in_chat(self, current_chat_history):
+        """Gets the token summary and appends it to the chat history as a message list.
+           Expected format for type="messages" is a list of dicts: {"role": str, "content": str}
+        """
+        usage_summary_text = token_tracker.format_summary()
+        if not usage_summary_text or usage_summary_text.strip() == "No LLM calls made yet":
+            usage_summary_text = "No token usage tracked yet for this session."
+        
+        # Ensure current_chat_history is a list
+        if current_chat_history is None:
+            current_chat_history = []
+
+        # Create user request message
+        user_message = {
+            "role": "user",
+            "content": "Give me the token usage"
+        }
+
+        # Create the usage summary message
+        usage_message = {
+            "role": "assistant",
+            "content": f"📊 Token Usage:\n{usage_summary_text}"
+        }
+        
+        # Append both messages to the history
+        updated_chat_history = current_chat_history + [user_message, usage_message]
+        return updated_chat_history 

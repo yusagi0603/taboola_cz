@@ -147,34 +147,6 @@ class Chat:
         new_value = choices[0][1] if choices else None 
         return gr.update(choices=choices, value=new_value)
 
-    def display_token_usage_in_chat(self, current_chat_history):
-        """Gets the token summary and appends it to the chat history as a message list.
-           Expected format for type="messages" is a list of dicts: {"role": str, "content": str}
-        """
-        usage_summary_text = token_tracker.format_summary()
-        if not usage_summary_text or usage_summary_text.strip() == "No LLM calls made yet": # Be more specific
-            usage_summary_text = "No token usage tracked yet for this session."
-        
-        # Ensure current_chat_history is a list
-        if current_chat_history is None:
-            current_chat_history = []
-
-        # 
-        user_message = {
-            "role": "user",
-            "content": "Give me the token usage"
-        }
-
-        # Create the new message dictionary
-        usage_message = {
-            "role": "assistant", # Or use "system" if you prefer and style it differently
-            "content": f"📊 Token Usage:\n{usage_summary_text}"
-        }
-        
-        # Append the new message dictionary to the history
-        updated_chat_history = current_chat_history + [user_message, usage_message]
-        return updated_chat_history
-
     def _handle_response(self, message, history, textbox_content):
         # When type="messages", history is already in the correct list of dicts format
         start_time = time.time()
@@ -490,7 +462,7 @@ class Chat:
 
         # Event handler for Button 1 (placeholder_button1)
         self.display_usage_button.click(
-            fn=self.display_token_usage_in_chat,
+            fn=self.llm_handler.display_token_usage_in_chat,
             inputs=[self.chatbot], # Takes current chat history
             outputs=[self.chatbot] # Outputs updated chat history
         )
