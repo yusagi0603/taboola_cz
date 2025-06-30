@@ -233,7 +233,7 @@ class Chat:
 
         yield suggestion, current_lesson_plan, next_step_prompt
 
-    def prepare_prompt_template(self, problem_type, current_article):
+    def prepare_prompt_preview(self, problem_type, current_article):
         """Delegate prompt preparation to the QuestionPromptHandler"""
         return self.prompt_handler.prepare_question_prompt(
             problem_type=problem_type,
@@ -315,7 +315,7 @@ class Chat:
                                 label="Prompt Preview",
                                 lines=10,
                                 elem_classes=["fullscreen-editor"],
-                                value=self.update_prompt_preview(self.question_type_dropdown.value, self.textbox.value)
+                                value=self.prepare_prompt_preview(self.question_type_dropdown.value, self.textbox.value)
                             )
                             self.generate_question_button.render()
 
@@ -366,13 +366,13 @@ class Chat:
                     self.token_summary.render()
 
         self.textbox.change(
-            fn=self.update_prompt_preview,
+            fn=self.prepare_prompt_preview,
             inputs=[self.question_type_dropdown, self.textbox],
             outputs=[self.prompt_preview]
         )
         
         self.question_type_dropdown.change(
-            fn=self.update_prompt_preview,
+            fn=self.prepare_prompt_preview,
             inputs=[self.question_type_dropdown, self.textbox],
             outputs=[self.prompt_preview]
         )
@@ -409,7 +409,7 @@ class Chat:
             fn=None, # No preview update for now, or a dedicated one
             inputs=None,
             outputs=None 
-            # fn=self.update_prompt_preview, 
+            # fn=self.prepare_prompt_preview, 
             # inputs=[self.question_type_dropdown, self.difficulty_dropdown, self.textbox],
             # outputs=[self.prompt_preview]
         )
@@ -418,7 +418,7 @@ class Chat:
             fn=None, # No preview update for now, or a dedicated one
             inputs=None,
             outputs=None
-            # fn=self.update_prompt_preview,
+            # fn=self.prepare_prompt_preview,
             # inputs=[self.question_type_dropdown, self.difficulty_dropdown, self.textbox],
             # outputs=[self.prompt_preview]
         )
@@ -468,9 +468,3 @@ class Chat:
         )
 
         return chat_ui
-
-    def update_prompt_preview(self, question_type, current_article):
-        """
-        Updates the prompt preview based on question type.
-        """
-        return self.prepare_prompt_template(question_type, current_article)
