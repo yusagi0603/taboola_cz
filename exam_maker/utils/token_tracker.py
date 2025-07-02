@@ -132,6 +132,21 @@ class TokenTracker:
         self.session_total_cost = 0.0
         app_logger.info("Token tracker reset for new session")
 
+    def format_summary(self):
+        """Format the session summary into a readable string"""
+        summary = self.get_session_summary()
+        if summary['total_calls'] == 0:
+            return "No LLM calls made yet"
+        
+        summary_text = (
+            f"Total Calls: {summary['total_calls']}\n"
+            f"Total Tokens: {summary['total_tokens']:,}\n"
+            f"Total Cost: ${summary['total_cost']:.4f}\n"
+            f"Avg Tokens/Call: {summary['average_tokens_per_call']:.1f}\n"
+            f"Functions Used: {', '.join(summary['functions_used'])}"
+        )
+        return summary_text
+
 
 # Global token tracker instance
 token_tracker = TokenTracker() 

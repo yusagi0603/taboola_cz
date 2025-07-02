@@ -48,7 +48,7 @@ with gr.Blocks(css=custom_css) as demo:
     ).then(
         fn=entry_form.generate_initial_content,
         inputs=[entry_form.grade, entry_form.unit, entry_form.topic, entry_form.grammar, entry_form.input_article, entry_form.textbook_vocab_list, entry_form.additional_vocab_list],
-        outputs=[chat.textbox, chat_ui, entry_form_ui, chat.token_summary],
+        outputs=[chat.textbox, chat_ui, entry_form_ui],
     ).then(
         fn=lambda: gr.update(visible=False),  # Hide loading spinner when done
         outputs=entry_form.spinner,
@@ -70,8 +70,8 @@ with gr.Blocks(css=custom_css) as demo:
 
     # Initialize token summary on demo load
     demo.load(
-        fn=lambda: (token_tracker.reset_session(), chat.update_token_summary())[1],  # Reset tracker and return summary
-        outputs=chat.token_summary
+        fn=lambda: token_tracker.reset_session(),  # Reset tracker and return summary
+        outputs=None
     )
 
 demo.launch(share=True, show_error=True)
