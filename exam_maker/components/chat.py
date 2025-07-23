@@ -80,8 +80,15 @@ class Chat:
             render=False
         )
 
+        self.question_count_dropdown = gr.Dropdown(
+            choices=[1, 2, 3, 4, 5],
+            value=1,
+            label="Number of Questions",
+            render=False
+        )
 
-        self.generate_question_button = gr.Button("Generate Question", render=False)
+
+        self.generate_question_button = gr.Button("Generate Questions", render=False)
         
         # For updating question
         self.rewrite_question_dropdown = gr.Dropdown(
@@ -251,6 +258,26 @@ class Chat:
             problems.append((problem_type, f"Error creating problem: {str(e)}"))
         return problems
 
+    def create_multiple_problems(self, problem_type, prompt_preview, question_count, problems, timeout=60):
+        """Generate multiple questions of the same type"""
+        self.logger.info(f"Creating {question_count} {problem_type} questions...")
+        
+        for i in range(question_count):
+            try:
+                raw_problem_text = self.llm_handler.generate_response(
+                    prompt_preview, 
+                    timeout=timeout, 
+                    schema=QUESTION_SCHEMA
+                )
+                problem_text = self.question_formatter.normalize_question_output(raw_problem_text)
+                problems.append((problem_type, problem_text))
+                
+            except Exception as e:
+                self.logger.error(f"Error creating question {i+1} for {problem_type}: {str(e)}")
+                problems.append((problem_type, f"Error creating question {i+1}: {str(e)}"))
+        
+        return problems
+
     def rewrite_problem(self, problem_index, difficulty_change, current_article, problems, timeout=60):
 
         try:
@@ -307,7 +334,9 @@ class Chat:
                     
                     with gr.Tabs():
                         with gr.Tab("Generate Question"):
-                            self.question_type_dropdown.render()
+                            with gr.Row():
+                                self.question_type_dropdown.render()
+                                self.question_count_dropdown.render()
                             self.prompt_preview = gr.Textbox(
                                 label="Prompt Preview",
                                 lines=10,
@@ -390,16 +419,16 @@ class Chat:
             outputs=self.spinner,
             show_progress=False,
         ).then(
-            fn=lambda problem_type, history: history + [{"role": "user", "content": f"Help me generate a {problem_type} question."}],
-            inputs=[self.question_type_dropdown, self.chatbot],
+            fn=lambda problem_type, count, history: history + [{"role": "user", "content": f"Help me generate {count} {problem_type} question{'s' if count > 1 else ''}."}],
+            inputs=[self.question_type_dropdown, self.question_count_dropdown, self.chatbot],
             outputs=[self.chatbot]
         ).then(
-            fn=self.create_problem, 
-            inputs=[self.question_type_dropdown, self.prompt_preview, self.problem_list], 
+            fn=self.create_multiple_problems, 
+            inputs=[self.question_type_dropdown, self.prompt_preview, self.question_count_dropdown, self.problem_list], 
             outputs=[self.problem_list] 
         ).then(
-            fn=lambda problem_type, history: history + [{"role": "assistant", "content": f"✅ Finished generating {problem_type} question. Check the right panel for the new question."}],
-            inputs=[self.question_type_dropdown, self.chatbot],
+            fn=lambda problem_type, count, history: history + [{"role": "assistant", "content": f"✅ Finished generating {count} {problem_type} question{'s' if count > 1 else ''}. Check the right panel for the new question{'s' if count > 1 else ''}."}],
+            inputs=[self.question_type_dropdown, self.question_count_dropdown, self.chatbot],
             outputs=[self.chatbot]
         ).then(
             fn=lambda: gr.update(visible=False),
