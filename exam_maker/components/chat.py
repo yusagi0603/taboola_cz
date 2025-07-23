@@ -284,6 +284,13 @@ class Chat:
             # For now, let's keep the original if update fails catastrophically before list modification
             return problems, f"❌ Error updating question: {str(e)}"
 
+    def delete_problem(self, problem_index, problems):
+        """Delete a problem from the problem list"""
+        if 0 <= problem_index < len(problems):
+            deleted_problem = problems.pop(problem_index)
+            self.logger.info(f"Deleted problem at index {problem_index}: {deleted_problem[0]}")
+        return problems
+
     def render(self):  
         with gr.Group(visible=False) as chat_ui:
             with gr.Row(elem_classes=["toolbar"]) as toolbar:
@@ -328,13 +335,29 @@ class Chat:
                         """Render all problem textboxes"""
                         for i, textbox in enumerate(problems):
                             problem_type, problem_text = textbox
-                            textbox = gr.Textbox(
-                                label=problem_type,
-                                value=problem_text,
-                                lines=4,
-                                interactive=True,
-                                elem_classes=["fullscreen-editor"]
-                            )
+                            
+                            with gr.Row():
+                                with gr.Column(scale=10):
+                                    question_textbox = gr.Textbox(
+                                        label=f"{problem_type} (Question {i+1})",
+                                        value=problem_text,
+                                        lines=4,
+                                        interactive=True,
+                                        elem_classes=["fullscreen-editor"]
+                                    )
+                                with gr.Column(scale=1, min_width=60):
+                                    delete_btn = gr.Button(
+                                        "❌", 
+                                        size="sm",
+                                        variant="secondary",
+                                        elem_classes=["delete-question-btn"]
+                                    )
+                                    
+                                    # Handle delete button click
+                                    delete_btn.click(
+                                        fn=lambda idx=i: self.delete_problem(idx, self.problem_list.value),
+                                        outputs=[self.problem_list]
+                                    )
 
             gr.ChatInterface(
                 self._handle_response,
