@@ -2,6 +2,7 @@ import os
 import csv
 import json
 import time
+import random
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 import re
@@ -13,6 +14,15 @@ class PromptHandler:
             loader=FileSystemLoader(self.template_dir),
             autoescape=select_autoescape(['html', 'xml'])
         )
+        
+        def random_filter(seq, count=5):
+            """Select random items from a sequence"""
+            if not seq:
+                return []
+            if len(seq) <= count:
+                return seq
+            return random.sample(seq, count)
+        self.env.filters['random'] = random_filter
         
         self.csv_dir = Path(__file__).parent.parent.parent / "problem_example"
         
