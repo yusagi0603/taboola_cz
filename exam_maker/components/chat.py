@@ -370,9 +370,7 @@ class Chat:
             )
 
             with gr.Row():
-                self.submit_button.render()
-            with gr.Row():
-                download_button = gr.DownloadButton("Download Word Document", visible=False)
+                download_button = gr.DownloadButton("下載考卷", visible=True)
                 
 
         self.textbox.change(
@@ -441,12 +439,9 @@ class Chat:
             show_progress=False,
         )
 
-        self.submit_button.click(
+        download_button.click(
             fn=lambda article, problems: self.exam_paper_handler.generate_final_exam_doc(article, problems)[0],
             inputs=[self.textbox, self.problem_list],
-            outputs=download_button
-        ).then(
-            fn=lambda: gr.update(visible=True),
             outputs=download_button
         )
 
