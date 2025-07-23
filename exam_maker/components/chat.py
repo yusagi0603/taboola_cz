@@ -80,8 +80,15 @@ class Chat:
             render=False
         )
 
+        self.question_count_dropdown = gr.Dropdown(
+            choices=[1, 2, 3, 4, 5],
+            value=1,
+            label="Number of Questions",
+            render=False
+        )
 
-        self.generate_question_button = gr.Button("Generate Question", render=False)
+
+        self.generate_question_button = gr.Button("Generate Questions", render=False)
         
         # For updating question
         self.rewrite_question_dropdown = gr.Dropdown(
@@ -251,6 +258,26 @@ class Chat:
             problems.append((problem_type, f"Error creating problem: {str(e)}"))
         return problems
 
+    def create_multiple_problems(self, problem_type, prompt_preview, question_count, problems, timeout=60):
+        """Generate multiple questions of the same type"""
+        self.logger.info(f"Creating {question_count} {problem_type} questions...")
+        
+        for i in range(question_count):
+            try:
+                raw_problem_text = self.llm_handler.generate_response(
+                    prompt_preview, 
+                    timeout=timeout, 
+                    schema=QUESTION_SCHEMA
+                )
+                problem_text = self.question_formatter.normalize_question_output(raw_problem_text)
+                problems.append((problem_type, problem_text))
+                
+            except Exception as e:
+                self.logger.error(f"Error creating question {i+1} for {problem_type}: {str(e)}")
+                problems.append((problem_type, f"Error creating question {i+1}: {str(e)}"))
+        
+        return problems
+
     def rewrite_problem(self, problem_index, difficulty_change, current_article, problems, timeout=60):
 
         try:
@@ -284,6 +311,13 @@ class Chat:
             # For now, let's keep the original if update fails catastrophically before list modification
             return problems, f"❌ Error updating question: {str(e)}"
 
+    def delete_problem(self, problem_index, problems):
+        """Delete a problem from the problem list"""
+        if 0 <= problem_index < len(problems):
+            deleted_problem = problems.pop(problem_index)
+            self.logger.info(f"Deleted problem at index {problem_index}: {deleted_problem[0]}")
+        return problems
+
     def render(self):  
         with gr.Group(visible=False) as chat_ui:
             with gr.Row(elem_classes=["toolbar"]) as toolbar:
@@ -300,7 +334,9 @@ class Chat:
                     
                     with gr.Tabs():
                         with gr.Tab("Generate Question"):
-                            self.question_type_dropdown.render()
+                            with gr.Row():
+                                self.question_type_dropdown.render()
+                                self.question_count_dropdown.render()
                             self.prompt_preview = gr.Textbox(
                                 label="Prompt Preview",
                                 lines=10,
@@ -328,13 +364,29 @@ class Chat:
                         """Render all problem textboxes"""
                         for i, textbox in enumerate(problems):
                             problem_type, problem_text = textbox
-                            textbox = gr.Textbox(
-                                label=problem_type,
-                                value=problem_text,
-                                lines=4,
-                                interactive=True,
-                                elem_classes=["fullscreen-editor"]
-                            )
+                            
+                            with gr.Row():
+                                with gr.Column(scale=10):
+                                    question_textbox = gr.Textbox(
+                                        label=f"{problem_type} (Question {i+1})",
+                                        value=problem_text,
+                                        lines=4,
+                                        interactive=True,
+                                        elem_classes=["fullscreen-editor"]
+                                    )
+                                with gr.Column(scale=1, min_width=60):
+                                    delete_btn = gr.Button(
+                                        "❌", 
+                                        size="sm",
+                                        variant="secondary",
+                                        elem_classes=["delete-question-btn"]
+                                    )
+                                    
+                                    # Handle delete button click
+                                    delete_btn.click(
+                                        fn=lambda idx=i: self.delete_problem(idx, self.problem_list.value),
+                                        outputs=[self.problem_list]
+                                    )
 
             gr.ChatInterface(
                 self._handle_response,
@@ -347,9 +399,7 @@ class Chat:
             )
 
             with gr.Row():
-                self.submit_button.render()
-            with gr.Row():
-                download_button = gr.DownloadButton("Download Word Document", visible=False)
+                download_button = gr.DownloadButton("下載考卷", visible=True)
                 
 
         self.textbox.change(
@@ -369,16 +419,16 @@ class Chat:
             outputs=self.spinner,
             show_progress=False,
         ).then(
-            fn=lambda problem_type, history: history + [{"role": "user", "content": f"Help me generate a {problem_type} question."}],
-            inputs=[self.question_type_dropdown, self.chatbot],
+            fn=lambda problem_type, count, history: history + [{"role": "user", "content": f"Help me generate {count} {problem_type} question{'s' if count > 1 else ''}."}],
+            inputs=[self.question_type_dropdown, self.question_count_dropdown, self.chatbot],
             outputs=[self.chatbot]
         ).then(
-            fn=self.create_problem, 
-            inputs=[self.question_type_dropdown, self.prompt_preview, self.problem_list], 
+            fn=self.create_multiple_problems, 
+            inputs=[self.question_type_dropdown, self.prompt_preview, self.question_count_dropdown, self.problem_list], 
             outputs=[self.problem_list] 
         ).then(
-            fn=lambda problem_type, history: history + [{"role": "assistant", "content": f"✅ Finished generating {problem_type} question. Check the right panel for the new question."}],
-            inputs=[self.question_type_dropdown, self.chatbot],
+            fn=lambda problem_type, count, history: history + [{"role": "assistant", "content": f"✅ Finished generating {count} {problem_type} question{'s' if count > 1 else ''}. Check the right panel for the new question{'s' if count > 1 else ''}."}],
+            inputs=[self.question_type_dropdown, self.question_count_dropdown, self.chatbot],
             outputs=[self.chatbot]
         ).then(
             fn=lambda: gr.update(visible=False),
@@ -418,12 +468,9 @@ class Chat:
             show_progress=False,
         )
 
-        self.submit_button.click(
+        download_button.click(
             fn=lambda article, problems: self.exam_paper_handler.generate_final_exam_doc(article, problems)[0],
             inputs=[self.textbox, self.problem_list],
-            outputs=download_button
-        ).then(
-            fn=lambda: gr.update(visible=True),
             outputs=download_button
         )
 
